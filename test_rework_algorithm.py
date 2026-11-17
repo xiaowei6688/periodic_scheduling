@@ -1,0 +1,257 @@
+"""重排算法单元测试（按 8 层规则逐层验证）。
+
+测试构造的工单使用与真实集成一致的「原始形态」字段名，
+再经 canonicalize() 规整，确保测试覆盖真实链路。
+
+    python -m unittest test_rework_algorithm -v
+"""
+
+from __future__ import annotations
+
+import unittest
+
+from rework_algorithm import (
+    Calendar,
+    canonicalize,
+    categorize_old,
+    effective_limit,
+    effective_time_period,
+    iter_days,
+    largest_remainder_split,
+    parse_time_windows,
+    rework,
+    schedule_manual,
+)
+
+DEFAULT_WINDOW = ("2026-12-01 00:00:00", "2026-12-10 23:59:59")
+DAY_WINDOW = "08:30:00-17:30:00"     # 与旧工单默认窗口一致，9 小时
+
+
+def new_order(guid: str, seconds: int, pre_start: str, pre_end: str,
+              airport: str = "AP", tp: str = DAY_WINDOW, **kw) -> dict:
+    """拆单产出形态：plan 挂详情 + 工单层字段。"""
+    order = {
+        "work_order_guid": guid, "work_order_no": f"ZQ-{guid}", "plan_guid": f"p-{guid}",
+        "cycle_airport_guid": airport, "second_num": seconds, "capacity_limit": None,
+        "inspection_method": "1", "time_period": tp,
+        "pre_start_date": pre_start, "pre_end_date": pre_end,
+        "start_date": None, "end_date": None, "source": "new",
+        "plan": {"speciality": "tms", "workNature": "1", "workNatureSub": "t-rcxs", "oneDay": 1},
+    }
+    order.update(kw)
+    return order
+
+
+def old_order(guid: str, seconds: int, start: str, end: str, status: str,
+              airport: str = "AP", pre_start: str | None = None,
+              pre_end: str | None = None, speciality: str = "tms", **kw) -> dict:
+    """归一化后旧工单形态（rework_orders.normalize_existing 的产出）。"""
+    order = {
+        "work_order_guid": guid, "work_order_no": f"ZQ-{guid}", "plan_guid": f"p-{guid}",
+        "cycle_airport_guid": airport, "second_num": seconds, "capacity_limit": None,
+        "inspection_method": "1",
+        "work_order_status": status,
+        "professional_category": speciality, "work_nature": "1",
+        "work_nature_sub": "t-rcxs", "one_day": 1,
+        "pre_start_date": pre_start, "pre_end_date": pre_end,
+        "start_date": start, "end_date": end, "source": "existing",
+    }
+    order.update(kw)
+    return order
+
+
+def build_cbd_scenario():
+    """文档2 的 C→B→D 链式重排示例，全部落在旧工单默认窗口 08:30-17:30 内。"""
+    window = ("2026-12-01 00:00:00", "2026-12-10 23:59:59")
+    old = [
+        old_order("f1", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8"),
+        old_order("f2", 25200, "2026-12-02 08:30:00", "2026-12-02 15:30:00", "8"),
+        old_order("f3", 32400, "2026-12-03 08:30:00", "2026-12-03 17:30:00", "8"),
+        old_order("f4", 25200, "2026-12-04 08:30:00", "2026-12-04 15:30:00", "8"),
+        old_order("B", 7200, "2026-12-02 15:30:00", "2026-12-02 17:30:00", "9",
+                  pre_start="2026-12-01 00:00:00", pre_end="2026-12-04 23:59:59"),
+        old_order("D", 7200, "2026-12-04 15:30:00", "2026-12-04 17:30:00", "9",
+                  pre_start="2026-12-04 00:00:00", pre_end="2026-12-08 23:59:59"),
+    ]
+    new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
+    return new, old, window
+
+
+class TestBasics(unittest.TestCase):
+    def test_parse_windows(self):
+        self.assertEqual(parse_time_windows(DAY_WINDOW), [(30600, 63000)])
+        self.assertEqual(parse_time_windows("08:30:00-12:30:00;12:45:00-18:30:00"),
+                         [(30600, 45000), (45900, 66600)])
+        self.assertEqual(parse_time_windows(""), [])
+
+    def test_effective_default_window(self):
+        visible = canonicalize(old_order("a", 1, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9"))
+        self.assertIn("08:30", effective_time_period(visible))
+        infrared = canonicalize(old_order("b", 1, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9",
+                                          work_nature_sub="t-hwxs"))
+        self.assertIn("05:00", effective_time_period(infrared))
+
+    def test_iter_days_inclusive(self):
+        days = iter_days("2026-12-01 00:00:00", "2026-12-03 23:59:59")
+        self.assertEqual(days, ["2026-12-01", "2026-12-02", "2026-12-03"])
+
+    def test_effective_limit(self):
+        o = canonicalize(new_order("x", 7200, "2026-12-01", "2026-12-01",
+                                   tp="08:00:00-11:00:00"))
+        # 时段 3h=10800 < 配额 23040 -> 10800
+        self.assertEqual(effective_limit(o), 10800)
+
+    def test_largest_remainder(self):
+        self.assertEqual(sum(largest_remainder_split(5, [31, 30])), 5)
+        self.assertEqual(largest_remainder_split(1, [31, 30]), [1, 0])
+        self.assertEqual(largest_remainder_split(2, [1, 1]), [1, 1])
+
+
+class TestLayer2(unittest.TestCase):
+    def test_substation_fixed(self):
+        orders = [canonicalize(old_order("s", 3600, "2026-12-01 08:00:00", "2026-12-01 09:00:00",
+                                         "9", speciality="sms"))]
+        cat = categorize_old(orders, *DEFAULT_WINDOW)
+        self.assertEqual([o["guid"] for o in cat.fixed], ["s"])
+        self.assertEqual(cat.reworkable, [])
+
+    def test_status9_reworkable(self):
+        orders = [canonicalize(old_order("b", 3600, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9"))]
+        cat = categorize_old(orders, *DEFAULT_WINDOW)
+        self.assertEqual([o["guid"] for o in cat.reworkable], ["b"])
+
+    def test_status16_zero_seconds_not_occupied(self):
+        orders = [canonicalize(old_order("z", 0, "2026-12-01 08:00:00", "2026-12-01 08:00:00", "16"))]
+        cat = categorize_old(orders, *DEFAULT_WINDOW)
+        self.assertEqual(cat.fixed, [])
+        self.assertEqual(cat.reworkable, [])
+
+    def test_status8_12_fixed(self):
+        for status in ("8", "12"):
+            with self.subTest(status=status):
+                orders = [canonicalize(old_order("f", 3600, "2026-12-01 08:00:00",
+                                                 "2026-12-01 09:00:00", status))]
+                cat = categorize_old(orders, *DEFAULT_WINDOW)
+                self.assertEqual([o["guid"] for o in cat.fixed], ["f"])
+
+
+class TestCalendar(unittest.TestCase):
+    def test_free_intervals(self):
+        cal = Calendar()
+        cal.place("a", "2026-12-01", [(28800, 43200)], 14400)   # 08:00-12:00
+        free = cal.free_intervals("2026-12-01", [(28800, 50400)])
+        self.assertEqual(free, [(43200, 50400)])
+
+    def test_can_place_fragmented(self):
+        cal = Calendar()
+        cal.place("a", "2026-12-01", [(28800, 43200)], 14400)
+        cal.place("b", "2026-12-01", [(46800, 50400)], 3600)
+        order = canonicalize(new_order("c", 7200, "2026-12-01", "2026-12-01",
+                                       tp="08:00:00-15:00:00"))
+        frags = cal.can_place(order, "2026-12-01", enforce_quota=False)
+        self.assertIsNotNone(frags)
+        total = sum(e - s for s, e in frags)
+        self.assertEqual(total, 7200)
+
+    def test_can_place_quota_blocks(self):
+        cal = Calendar()
+        cal.place("a", "2026-12-01", [(28800, 43200)], 14400)   # 已 4h
+        order = canonicalize(new_order("c", 18000, "2026-12-01", "2026-12-01",
+                                       tp="08:00:00-17:30:00"))
+        # 4h + 5h = 9h > 6.4h 配额
+        self.assertIsNone(cal.can_place(order, "2026-12-01", enforce_quota=True))
+        self.assertIsNotNone(cal.can_place(order, "2026-12-01", enforce_quota=False))
+
+
+class TestLayer456(unittest.TestCase):
+    """文档2 的 C→B→D 链式重排示例。"""
+
+    def test_chain_rework_c_b_d(self):
+        new, old, window = build_cbd_scenario()
+        result = rework(new, old, *window)
+        self.assertEqual(result.entry, "insert_rework")
+        moved = [s.moved_guid for s in result.rework_steps]
+        self.assertEqual(moved, ["B", "D"])
+        self.assertEqual([s.preempted_by for s in result.rework_steps], ["C", "B"])
+        c = next(p for p in result.new_placements if p["work_order_guid"] == "C")
+        self.assertEqual(c["start"], "2026-12-02 15:30:00")
+        d = next(x for x in result.changed_old_orders if x["work_order_guid"] == "D")
+        self.assertTrue(d["new_start"].startswith("2026-12-05"))
+
+    def test_normal_entry_no_chain(self):
+        old = [old_order("f", 14400, "2026-12-01 08:00:00", "2026-12-01 12:00:00", "8")]
+        new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
+        result = rework(new, old, *DEFAULT_WINDOW)
+        self.assertEqual(result.entry, "normal")
+        self.assertEqual(result.rework_steps, [])
+        self.assertEqual(len(result.new_placements), 1)
+
+    def test_cycle_prevention(self):
+        """A 抢 B、B 只能抢 A 时，必须失败而不是死循环。"""
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [
+            old_order("A", 16200, "2026-12-01 08:30:00", "2026-12-01 13:00:00", "9",
+                      pre_start="2026-12-01 00:00:00", pre_end="2026-12-01 23:59:59"),
+            old_order("B", 16200, "2026-12-01 13:00:00", "2026-12-01 17:30:00", "9",
+                      pre_start="2026-12-01 00:00:00", pre_end="2026-12-01 23:59:59"),
+        ]
+        new = [new_order("C", 16200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
+        result = rework(new, old, *window)
+        self.assertEqual(result.entry, "force_insert")
+        self.assertEqual(len(result.unplaced), 1)
+
+
+class TestLayer67(unittest.TestCase):
+    def test_force_proposal_protected_holders(self):
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
+        new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
+        result = rework(new, old, *window)
+        self.assertEqual(result.entry, "force_insert")
+        self.assertEqual(result.force_proposals[0].order_guid, "C")
+        self.assertIn("f", result.force_proposals[0].protected_holders)
+        self.assertEqual(result.changed_old_orders, [])
+
+    def test_change_set_fields(self):
+        new, old, window = build_cbd_scenario()
+        result = rework(new, old, *window)
+        d = next(x for x in result.changed_old_orders if x["work_order_guid"] == "D")
+        self.assertEqual(set(d), {"work_order_guid", "preempted_by",
+                                  "old_start", "old_end", "new_start", "new_end"})
+        self.assertEqual(d["old_start"], "2026-12-04 15:30:00")
+        self.assertTrue(d["new_start"].startswith("2026-12-05"))
+
+
+class TestLayer8(unittest.TestCase):
+    def _manual(self, guid: str, plan: str, ps: str, pe: str) -> dict:
+        return {
+            "work_order_guid": guid, "work_order_no": f"RX-{guid}", "plan_guid": plan,
+            "cycle_airport_guid": None, "second_num": None, "capacity_limit": None,
+            "inspection_method": "2", "professional_category": "tms", "work_nature": "1",
+            "work_nature_sub": "t-rcxs", "one_day": 1, "work_order_status": "9",
+            "pre_start_date": ps, "pre_end_date": pe,
+            "start_date": None, "end_date": None, "source": "new",
+        }
+
+    def test_schedule_manual_weekly(self):
+        orders = [self._manual(f"m{i}", "plan-x",
+                               "2026-12-01 00:00:00", "2027-01-31 23:59:59")
+                  for i in range(4)]
+        result = schedule_manual([canonicalize(o) for o in orders],
+                                 "2026-12-01 00:00:00", "2027-01-31 23:59:59")
+        self.assertEqual(len(result), 4)
+        months = {r["month"] for r in result}
+        self.assertEqual(months, {"2026-12", "2027-01"})
+        dec_weeks = [r["week_start"] for r in result if r["month"] == "2026-12"]
+        self.assertEqual(len(dec_weeks), len(set(dec_weeks)))
+
+    def test_manual_uses_own_window(self):
+        orders = [self._manual("m0", "plan-y",
+                               "2026-12-01 00:00:00", "2026-12-31 23:59:59")]
+        result = schedule_manual([canonicalize(o) for o in orders],
+                                 "2026-11-01 00:00:00", "2026-11-30 23:59:59")
+        self.assertEqual(result[0]["month"], "2026-12")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

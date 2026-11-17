@@ -56,6 +56,24 @@ def is_airport_infrared(work_nature_sub: str) -> bool:
     return (work_nature_sub or "") in INFRARED_SUB_NATURES
 
 
+# 变电航迹类型（Java 6671-6674 getAirportWorkSeconds 的推断口径）
+SMS_TRACK_INFRARED = "309398410241898018"
+SMS_TRACK_BY_SUB = {
+    "s-lhxs": "12",
+    "s-trcxs": "363569449772114767",
+    "s-rcxs": "11",
+}
+
+
+def resolve_sms_track_type(plan: dict, infrared: bool) -> Optional[str]:
+    """变电航迹类型：优先计划自带，空则按红外/巡视子类回退（Java 6671-6674）。"""
+    if (plan.get("trackType") or "").strip():
+        return plan["trackType"].strip()
+    if infrared:
+        return SMS_TRACK_INFRARED
+    return SMS_TRACK_BY_SUB.get(plan.get("workNatureSub") or "")
+
+
 def day_seconds(infrared: bool) -> int:
     return DAY_SECONDS_INFRARED if infrared else DAY_SECONDS_VISIBLE
 
@@ -229,7 +247,7 @@ def _is_deleted(row: dict) -> bool:
     报文里未落库的占位值是 -1（id/createUser/isDeleted 都是 -1），
     不能当成删除，否则整批设备会被静默跳过。
     """
-    value = row.get("is_deleted", 0)
+    value = row.get("is_deleted", row.get("isDeleted", 0))
     return str(value).strip().lower() in {"1", "true"}
 
 
@@ -240,8 +258,10 @@ class Ledgers:
     这里随报文传进来。设备本身不在这里——设备就在 deviceList 上。
     """
 
-    def __init__(self, airports: dict, capacity_table: list[dict]):
+    def __init__(self, airports: dict, capacity_table: list[dict],
+                 device_routes: Optional[list[dict]] = None):
         self.airports = airports or {}
+        self.device_routes = device_routes or []
         self.capacity_index: dict[tuple, float] = {}
         for row in capacity_table or []:
             key = (
@@ -255,7 +275,29 @@ class Ledgers:
 
     @classmethod
     def from_payload(cls, payload: dict) -> "Ledgers":
-        return cls(payload.get("airports") or {}, payload.get("capacityTable") or [])
+        return cls(payload.get("airports") or {},
+                   payload.get("capacityTable") or [],
+                   payload.get("deviceRoutes") or [])
+
+    def route_points(self, device_guid: str, track_type: str) -> int:
+        """变电整站有效航点总数（Java 6676-6681）。
+
+        条件：设备 GUID + 变电类型 + 航迹类型匹配 + 有效 + 未删除，对 taskPoint 求和。
+        """
+        total = 0
+        for row in self.device_routes:
+            if row.get("deviceGuid") != device_guid:
+                continue
+            if (row.get("deviceType") or "") != "sms":
+                continue
+            if (row.get("trackType") or "") != track_type:
+                continue
+            if str(row.get("validating")) != "1":
+                continue
+            if _is_deleted(row):
+                continue
+            total += int(row.get("taskPoint") or 0)
+        return total
 
     def airport(self, airport_guid: str) -> Optional[dict]:
         return self.airports.get(airport_guid)
@@ -410,10 +452,23 @@ def get_work_seconds(plan: dict, devices: list[DeviceAssignment], capacity: floa
 
     本体(1/101)：每台设备计 1 个单位。
     通道(2)：按台账档距米数换算公里；档距缺失 -> 抛错 -> 整组保底。
-    变电(sms)：整站航点只计一次（模拟数据不涉及，走 NotImplemented 保护）。
+    变电(sms)：整站有效航点求和算一次，只记在首台设备，整单不拆。
     """
     if (plan.get("speciality") or "") == "sms":
-        raise NotImplementedError("变电整站航点估时未在本脚本实现，请接入 DeviceRouteInfo")
+        # 变电整站：按航点总数算一次，只记在首台设备上，其余 0（Java 6669-6685）
+        track_type = resolve_sms_track_type(plan, infrared)
+        station_guid = plan.get("jobObjectGuid") or ""
+        if not track_type or not station_guid:
+            raise ValueError(f"变电航迹类型或变电站GUID缺失：trackType={track_type!r} jobObjectGuid={station_guid!r}")
+        points = ledgers.route_points(station_guid, track_type)
+        if points <= 0:
+            # Java 此处不校验，会算出 0 秒工单；这里显式暴露航点缺失，走整组保底
+            raise ValueError(f"变电有效航点为 {points}：deviceGuid={station_guid!r} trackType={track_type!r}")
+        station_seconds = estimate_seconds(points, capacity, infrared)
+        seconds = [0] * len(devices)
+        if seconds:
+            seconds[0] = station_seconds
+        return seconds
 
     channel = (not infrared) and (plan.get("workNature") or "") == "2"
     seconds: list[int] = []
@@ -469,7 +524,8 @@ def pack_slices(task: AirportTask, plan: dict) -> list[Slice]:
     limit = plan_limit(plan)
     task.limit = limit
 
-    if task.whole:
+    # 变电整单不拆（Java 6405 scheduleWhole / 6203 sms 分组）
+    if task.whole or (plan.get("speciality") or "") == "sms":
         indices = list(range(len(task.devices)))
         return [Slice(indices=indices, seconds=sum(task.seconds),
                       reason=task.fallback_reason)]
@@ -531,10 +587,14 @@ def build_order(plan: dict, devices: list[DeviceAssignment], airport: Optional[d
         "capacity_limit": capacity_limit,       # 单张工单工作量上限
         "schedule_status": "1" if reason else "0",
         "schedule_reason": reason,
+        # ---- 执行时间：pre 边界与时段在生成时继承自计划，是工单自己的列 ----
+        "pre_start_date": plan.get("preStartDate"),
+        "pre_end_date": plan.get("preEndDate"),
+        "time_period": plan.get("timePeriod"),
         # ---- 排班阶段回填 ----
         "start_date": None,
         "end_date": None,
-        # ---- 计划参数原样回传 ----
+        # ---- 计划参数原样回传（仅追溯，重排不依赖） ----
         "plan": plan,
     }
 
@@ -564,6 +624,9 @@ def build_manual_order(plan: dict, devices: list[DeviceAssignment]) -> tuple[dic
         "capacity_limit": None,            # 人工不走机场容量约束
         "schedule_status": "0",
         "schedule_reason": None,
+        "pre_start_date": plan.get("preStartDate"),
+        "pre_end_date": plan.get("preEndDate"),
+        "time_period": plan.get("timePeriod"),
         "start_date": None,
         "end_date": None,
         "plan": plan,

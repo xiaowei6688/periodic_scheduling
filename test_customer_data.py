@@ -119,22 +119,54 @@ class TestOrdering(unittest.TestCase):
         self.assertEqual(sequences, list(range(11, 11 + len(sequences))))
 
 
-class TestUnimplementedBranchIsLoud(unittest.TestCase):
-    def test_sms_estimation_raises_instead_of_silent_fallback(self):
-        """变电整站估时没实现，必须抛错，不能被保底吞掉。"""
-        ledgers = Ledgers(
+class TestSubstationEstimation(unittest.TestCase):
+    """变电：整站航点求和算一次，只记首台设备，整单不拆。"""
+
+    def _ledgers(self, routes, capacity=5.0):
+        return Ledgers(
             airports={"ap-a": {"airportName": "A", "airportModel": "M350H"}},
             capacity_table=[{"airportModel": "M350H", "speciality": "sms", "infrared": False,
-                             "item": "融合/例行", "voltage": "110", "capacity": 3.0}],
+                             "item": "融合/例行", "voltage": "500", "capacity": capacity}],
+            device_routes=routes,
         )
-        task = AirportTask(
-            plan={"speciality": "sms", "workNature": "1", "workNatureSub": "s-rcxs",
-                  "voltageLevel": "AC110kV"},
-            airport_guid="ap-a",
-            devices=[DeviceAssignment("d1", "airport", "ap-a", "站1", "L", "变电站")],
+
+    def _task(self, plan):
+        return AirportTask(
+            plan=plan, airport_guid="ap-a",
+            devices=[DeviceAssignment("d1", "airport", "ap-a", "站1", "L", "变电站"),
+                     DeviceAssignment("d2", "airport", "ap-a", "站2", "L", "变电站")],
         )
-        with self.assertRaises(NotImplementedError):
-            estimate_task(task, task.plan, {}, ledgers)
+
+    def test_station_points_summed_once(self):
+        plan = {"speciality": "sms", "workNature": "1", "workNatureSub": "s-rcxs",
+                "voltageLevel": "AC500kV", "jobObjectGuid": "st-1"}
+        routes = [
+            {"deviceGuid": "st-1", "deviceType": "sms", "trackType": "11", "taskPoint": 30, "validating": "1", "isDeleted": 0},
+            {"deviceGuid": "st-1", "deviceType": "sms", "trackType": "11", "taskPoint": 30, "validating": "1", "isDeleted": 0},
+            {"deviceGuid": "st-1", "deviceType": "sms", "trackType": "12", "taskPoint": 99, "validating": "1", "isDeleted": 0},
+            {"deviceGuid": "st-1", "deviceType": "sms", "trackType": "11", "taskPoint": 99, "validating": "0", "isDeleted": 0},
+            {"deviceGuid": "st-1", "deviceType": "sms", "trackType": "11", "taskPoint": 99, "validating": "1", "isDeleted": 1},
+        ]
+        task = self._task(plan)
+        estimate_task(task, plan, {}, self._ledgers(routes))
+        # 只累加 trackType=11 且有效未删除的 30+30=60 航点；capacity=5 -> 60/5*28800
+        self.assertEqual(task.seconds, [345600, 0])
+
+    def test_missing_track_type_falls_back(self):
+        plan = {"speciality": "sms", "workNature": "1", "workNatureSub": "未知子类",
+                "voltageLevel": "AC500kV", "jobObjectGuid": "st-1"}
+        task = self._task(plan)
+        estimate_task(task, plan, {}, self._ledgers([]))
+        self.assertTrue(task.whole)
+        self.assertIn("保底1小时", task.fallback_reason)
+
+    def test_missing_station_guid_falls_back(self):
+        plan = {"speciality": "sms", "workNature": "1", "workNatureSub": "s-rcxs",
+                "voltageLevel": "AC500kV", "jobObjectGuid": ""}
+        task = self._task(plan)
+        estimate_task(task, plan, {}, self._ledgers([]))
+        self.assertTrue(task.whole)
+        self.assertIn("保底1小时", task.fallback_reason)
 
 
 if __name__ == "__main__":

@@ -173,42 +173,40 @@ limit = min(28800 × 80%, plan.timePeriod 总长)      # 可见光 → min(23040
 2. **单台设备自身超限时独占一张单**（Java 原样行为），此时 `second_num > capacity_limit`
 3. **`whole=True` 完全不拆**
 
-### 2.5 输出：拆单字段 + 原样透传
+### 2.5 输出：工单自包含 + 计划原样透传
 
-工单只输出拆单自己算出来的字段，**计划参数整块原样带在 `plan` 里**，不挑选、不改名、不补默认值：
-
-```jsonc
-{
-  "work_order_guid": "tms_2026_xxx",          // 拆单生成
-  "work_order_no": "ZQ-{planNo}-{机场名}-{序号}",
-  "plan_guid": "...",                          // 仅作索引，完整对象在 plan 里
-  "inspection_method": "1",                    // 1 机场 / 2 人工
-  "order_source": "5",                         // 自动生成
-  "work_order_status": "9",                    // 排队中
-  "cycle_airport_guid": "ap-a",                // 执行机场
-  "parent_device_num": 3,                      // 这张单装几台设备
-  "second_num": 21600,                         // 预计作业秒数
-  "capacity_limit": 23040,                     // 单张工单工作量上限
-  "schedule_status": "0",                      // 仅保底时为 1
-  "schedule_reason": null,
-  "start_date": null,                          // 排班阶段回填
-  "end_date": null,
-  "plan": { ...计划原始对象，70 个字段原样... }
-}
-```
-
-明细同理，设备元素整块原样回传：
+工单带上重排所需的全部字段，**重排不依赖 `plan`**。`pre_start_date` / `pre_end_date` /
+`time_period` 是生成时从计划继承的工单列（Java `WorkOrderInfo` 本来就有这三列）。
 
 ```jsonc
 {
   "work_order_guid": "tms_2026_xxx",
-  "device": { ...deviceList 原始元素... }
+  "work_order_no": "ZQ-{planNo}-{机场名}-{序号}",
+  "plan_guid": "p-a-0003",                    // 追溯用，重排不读
+  "inspection_method": "1",                    // 1 机场 / 2 人工
+  "order_source": "5",
+  "work_order_status": "9",
+  "cycle_airport_guid": "ap-a",                // 只能在这个机场排
+  "parent_device_num": 3,                      // 描述，重排忽略
+  "second_num": 21600,                         // 占多久
+  "capacity_limit": 23040,                     // 一天最多能干多少
+  "schedule_status": "0",
+  "schedule_reason": null,
+  "pre_start_date": "2026-11-06 00:00:00",     // 能挪的范围
+  "pre_end_date": "2026-11-06 23:59:59",
+  "time_period": "08:30:00-17:30:00",          // 每天几点到几点
+  "start_date": null,                          // 重排回填
+  "end_date": null,
+  "plan": { ...计划原始对象，原样... }
 }
 ```
 
+明细：`{ "work_order_guid": "...", "device": { ...deviceList 原始元素... } }`
+
 人工工单：`work_order_no = RX-{planNo}-1`，`cycle_airport_guid` / `second_num` / `capacity_limit` 为 `null`。
 
-**拆单实际读的计划字段只有 6 个**：`speciality` / `workNature` / `workNatureSub` / `voltageLevel` / `timePeriod` / `preStartDate`。
+**拆单实际读的计划字段只有 6 个**：`speciality` / `workNature` / `workNatureSub` /
+`voltageLevel` / `timePeriod` / `preStartDate`，另外 `preEndDate` 用于继承。
 其余字段一律不读、不改、原样带走。
 
 ### 2.6 出单顺序（与 Java 一致）
@@ -340,3 +338,172 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 | 未巡设备过滤 | 需工单库图片数，代码里留了 `filter_plan_devices()` 钩子 |
 | 变电整站航点估时 | 需航迹点数据，当前显式抛 `NotImplementedError`，不静默降级 |
 | 配电台账 | 当前只支持输电 `tms` |
+
+---
+
+## 9. 三类巡检支持
+
+| 专业 | 说明 | 估时口径 | 拆单规则 |
+|---|---|---|---|
+| `tms` | 输电 | 本体按设备数；通道按台账档距米数→公里 | 按 `limit` 拆 |
+| `dms` | 配电 | 同输电（本体按设备数，通道按米数） | 按 `limit` 拆 |
+| `sms` | 变电 | **整站有效航点求和**算一次 | **整单不拆** |
+
+### 变电（sms）额外要求
+
+必须在报文顶层提供航点数据 `deviceRoutes`：
+
+```jsonc
+"deviceRoutes": [
+  {"deviceGuid": "st-0001", "deviceType": "sms", "trackType": "11",
+   "taskPoint": 40, "validating": "1", "isDeleted": 0}
+]
+```
+
+匹配条件（Java 6676-6681）：`deviceGuid` = 计划 `jobObjectGuid`、`deviceType=sms`、
+`trackType` 匹配、`validating=1`、未删除，对 `taskPoint` 求和。
+
+`trackType` 解析（Java 6671-6674）：优先 `plan.trackType`；空则红外→`309398410241898018`，
+否则按 `workNatureSub` 映射 `s-lhxs→12` / `s-trcxs→363569449772114767` / `s-rcxs→11`。
+
+航点为 0 时**显式报错走整组保底**（Java 不校验，会产出 0 秒工单）。
+
+### 承载力配置要覆盖三个专业
+
+```jsonc
+{"airportModel":"M350H","speciality":"dms","infrared":false,"item":"本体","voltage":"10","capacity":6.0},
+{"airportModel":"M350H","speciality":"sms","infrared":false,"item":"融合/例行","voltage":"500","capacity":100.0}
+```
+
+注意电压是纯数字：配电 `AC10kV`→`10`，变电 `AC500kV`→`500`。
+
+---
+
+## 10. 重排衔接模块 `rework_orders.py`
+
+只负责「拉旧工单 → 过滤 → 归一化 → 和新工单合并成待排集合」。不重排、不落库。
+
+```bash
+# 在线：拆单 + 取范围 + 拉旧单 + 合并
+python rework_orders.py --input mock_data/split_input.json --out out/rework_set.json
+
+# 离线：用本地文件代替接口响应
+python rework_orders.py --existing-file out/existing_orders.json --out out/rework_set.json
+
+# 只检查旧工单过滤与归一化
+python rework_orders.py --normalize-only --existing-file out/existing_orders.json
+```
+
+### 时间范围
+
+由新拆工单的 `pre_start_date` 最小值 ~ `pre_end_date` 最大值决定，自动传给接口的
+`startTime` / `endTime`，其余参数用默认值。
+
+### 过滤规则
+
+| 状态 | 含义 | 处理 |
+|---|---|---|
+| `11` | 已作废 | **丢弃**（Java 参与占用的只有 8/9/12/16） |
+| `12` | 延期 | **丢弃**（接口未返回周期时间窗口，暂时无法重排） |
+| `8` / `9` / `16` | 其余 | 保留 |
+
+### 字段归一化
+
+业务 DTO → 待排结构：
+
+| 业务字段 | 待排字段 |
+|---|---|
+| `workOrderGuid` | `work_order_guid` |
+| `cycleAirportGuid` | `cycle_airport_guid` |
+| `secondNum` | `second_num` |
+| `startDate` / `endDate` | `start_date` / `end_date` |
+| — | `pre_start_date` / `pre_end_date` **保持 `null`**（旧工单没有可调整窗口） |
+| `airportModel` / `workNatureSub` / `cycleVoltageLevel` | 保留，用于算 `capacity_limit` |
+| 原始 JSON | `raw` 原样带走 |
+
+时间格式统一成 `YYYY-MM-DD HH:MM:SS`，兼容 `T` 分隔和纯日期。
+
+### 两种工单的约束来源不同
+
+| | 可放窗口 | 现状基准 | 说明 |
+|---|---|---|---|
+| **新工单** | `pre_start_date ~ pre_end_date`（继承计划） | 无（`start/end` 为 null） | 必须排在计划窗口内 |
+| **旧工单** | **无** | `start_date ~ end_date` | 重排基准就是当前位置，不伪造窗口 |
+
+本次查询的时间段只记在输出的 `summary.window` 里，**不下发到任何工单字段**。
+
+### 接口鉴权（已验证可用）
+
+网关要**两个头一起发**，缺一不可：
+
+```python
+{
+    "authorization": "Basic c2FiZXI6c2FiZXJfc2VjcmV0",   # 客户端凭证
+    "zxhc-auth":     "bearer eyJhbGciOi..."              # 用户令牌（本产品自定义头名）
+}
+```
+
+环境变量覆盖：
+
+```bash
+export MAIN_CYCLE_BASIC="Basic c2FiZXI6c2FiZXJfc2VjcmV0"
+export MAIN_CYCLE_TOKEN="bearer eyJhbGciOi..."
+export MAIN_CYCLE_AUTH_HEADER="zxhc-auth"
+export MAIN_CYCLE_BASE="http://10.10.2.101:8000"
+```
+
+> 注意：不是 `Blade-Auth`（那是 BladeX 上游默认），本产品把令牌头改成了 `zxhc-auth`。
+> `MAIN_CYCLE_TOKEN` 会过期，过期后换一个即可，`MAIN_CYCLE_BASIC` 不用动。
+
+### 实测数据量
+
+| 场景 | 结果 |
+|---|---|
+| 单月（2026-10） | 390 条，3 页 |
+| 拆单窗口（2026-11-01~11-14） | 720 条 |
+| 过滤后可参与重排 | **16 条**（作废 4 / 延期 695 / 状态6 5） |
+
+---
+
+## 11. 重排算法 `rework_algorithm.py`
+
+把三份文档里的重排规则实现成可运行的排产器。只做机场工单整单重排 + 人工错峰，不落库。
+
+```bash
+python rework_algorithm.py --input out/rework_set.json --out out/rework_result.json
+python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 80% 日配额约束
+```
+
+### 8 层规则落地
+
+| 层 | 文档依据 | 实现 |
+|---|---|---|
+| L1 判定入口 | 文档2 §四 / FR05 | 先固定旧安排试排，全排下 → `normal` |
+| L2 对象筛选 | 接口 5.2 | 状态 9 非变电 → 可重排；8/12/16 固定占用（16 无时长不占位）；变电历史固定 |
+| L3 硬约束 | 文档2 §五 / FR06 | 按自身窗口/时段/机场；整单不拆；机场不降级；已完成事实保持 |
+| L4 链式重排 | FR06 | 回溯抢占 + 因果链记录 + 防循环 + 深度上限 |
+| L5 占用 | 文档2 §六 | 每机场共享日历；挪动即补齐占用；分支失败恢复原占用 |
+| L6 强插 | FR07 | 排不下才出建议，点名受保护占用者，不越过 |
+| L7 变更集 | 接口 5.3 | 输出每张挪动旧单的 old→new 时间与抢占方 |
+| L8 人工错峰 | 接口 6.1 | 最大余数法跨月分量 + 同计划周分散 + 全局周负载均衡 |
+
+### 入口形态
+
+输出 `entry` 三选一：
+
+- `normal` —— 旧安排不变即排完
+- `insert_rework` —— 按规则插单，产生一条重排链
+- `force_insert` —— 排不妥，给出强插建议（含受保护占用者清单）
+
+### 关键设计约定
+
+1. **占用用 `secondNum`，不用 `endDate-startDate`**（测试环境时间跨度不可信）。
+2. **旧工单没时段时用默认窗口**：可见光 `08:30-17:30`、红外 `05:00-08:00;19:00-22:00`。
+3. **80% 日配额是可选项**（`--enforce-quota`），默认关。文档要求正常排班受配额约束，
+   生产打开即可；关掉便于隔离「链式重排」逻辑本身。
+4. **旧工单没有 pre 窗口时**，可移动范围退回本次重排整体窗口（生产数据有 pre 字段时优先用它）。
+5. 重排粒度是**整张工单**：`seconds` 固定，工单要么整体放进某一天，要么不动。
+6. 测试 `test_rework_algorithm.py` 里用文档2 的 C→B→D 例子做了逐层断言。
+
+> 当前 `rework_set.json` 里新工单是 mock 机场（ap-a/b/c），旧工单是真实机场 GUID，
+> 两边机场不同所以重排链为 0 步 —— 这是测试环境数据错位，不是算法问题。

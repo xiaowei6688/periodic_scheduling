@@ -1,0 +1,409 @@
+{
+  "outcome": "存在强插候选",
+  "window": {
+    "start": "2026-11-01 00:00:00",
+    "end": "2026-11-14 18:30:00"
+  },
+  "stats": {
+    "new_placed": 19,
+    "old_moved": 0,
+    "old_unchanged": 16,
+    "manual": 3,
+    "unplaced": 11,
+    "chain_links": 0,
+    "chain_rounds": 0
+  },
+  "chain": [],
+  "new_orders": [
+    {
+      "work_order_guid": "tms_2026_0ea56a9a68154c1cb5efd7ae0b61d7cd",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场C-9",
+      "airport": "ap-c",
+      "second_num": 3600,
+      "start_date": "2026-11-06 08:30:00",
+      "end_date": "2026-11-06 09:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_3d52376b51244262a8bdac683d76980e",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场A-5",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-06 08:30:00",
+      "end_date": "2026-11-06 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_99e3fb3b7d6343608642b420490d99ac",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场B-8",
+      "airport": "ap-b",
+      "second_num": 18000,
+      "start_date": "2026-11-06 08:30:00",
+      "end_date": "2026-11-06 13:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_0e8bc6744b104e26abd563858ae4a0e2",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场A-10",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-01 08:30:00",
+      "end_date": "2026-11-01 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_375fad22359f4e42982afb6fd06684c3",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场B-14",
+      "airport": "ap-b",
+      "second_num": 18000,
+      "start_date": "2026-11-01 08:30:00",
+      "end_date": "2026-11-01 13:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_406098c88b624504a94b95b9f94ccc8b",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场A-12",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-02 08:30:00",
+      "end_date": "2026-11-02 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_eeb7cf7132e948a3aa7fb0806e9d33b1",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场C-15",
+      "airport": "ap-c",
+      "second_num": 3600,
+      "start_date": "2026-11-01 08:30:00",
+      "end_date": "2026-11-01 09:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_211a8a052e114b78bb530c1a7b9ff135",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场A-17",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-03 08:30:00",
+      "end_date": "2026-11-03 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_46b24c46a89f47d7971bd7d7c7d5011b",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场C-21",
+      "airport": "ap-c",
+      "second_num": 3600,
+      "start_date": "2026-11-03 08:30:00",
+      "end_date": "2026-11-03 09:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_8f77fe04890947f6871255d8100c004b",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场A-16",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-04 08:30:00",
+      "end_date": "2026-11-04 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_baa1fb0f984c4ea794180ee903ad3e5f",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场A-18",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "start_date": "2026-11-05 08:30:00",
+      "end_date": "2026-11-05 14:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_d72ddbb05a1944b199b3b0c31a8b0786",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场B-20",
+      "airport": "ap-b",
+      "second_num": 18000,
+      "start_date": "2026-11-03 08:30:00",
+      "end_date": "2026-11-03 13:30:00",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_1e924d6f8e69403eb711bab8d2a30330",
+      "work_order_no": "ZQ-JH-20261116090000002-1-苍岭机场A-22",
+      "airport": "ap-a",
+      "second_num": 12672,
+      "start_date": "2026-11-07 08:30:00",
+      "end_date": "2026-11-07 12:01:12",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_56673b3dc17e4460b6af7143a7bb2743",
+      "work_order_no": "ZQ-JH-20261116090000002-2-苍岭机场A-25",
+      "airport": "ap-a",
+      "second_num": 12672,
+      "start_date": "2026-11-07 12:45:00",
+      "end_date": "2026-11-07 16:16:12",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_5f469735e8dd42948b20ec63b07cf97b",
+      "work_order_no": "ZQ-JH-20261116090000002-3-苍岭机场A-28",
+      "airport": "ap-a",
+      "second_num": 12672,
+      "start_date": "2026-11-08 08:30:00",
+      "end_date": "2026-11-08 12:01:12",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_78d43b476da44ab3bf6ee3b3a5c52aa4",
+      "work_order_no": "ZQ-JH-20261116090000002-3-苍岭机场A-29",
+      "airport": "ap-a",
+      "second_num": 13248,
+      "start_date": "2026-11-09 08:30:00",
+      "end_date": "2026-11-09 12:10:48",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_1f1d1f7cac9d4e2db7192ffc41c33594",
+      "work_order_no": "ZQ-JH-20261116090000002-4-苍岭机场A-32",
+      "airport": "ap-a",
+      "second_num": 13248,
+      "start_date": "2026-11-08 12:45:00",
+      "end_date": "2026-11-08 16:25:48",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_437a2ecbe4fd46d587201dd87196fe20",
+      "work_order_no": "ZQ-JH-20261116090000002-4-苍岭机场A-33",
+      "airport": "ap-a",
+      "second_num": 14976,
+      "start_date": "2026-11-09 12:45:00",
+      "end_date": "2026-11-09 16:54:36",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_7c34d600c87c4180a3c7b7fd11748e7d",
+      "work_order_no": "ZQ-JH-20261116090000002-4-苍岭机场A-31",
+      "airport": "ap-a",
+      "second_num": 12672,
+      "start_date": "2026-11-10 12:45:00",
+      "end_date": "2026-11-10 16:16:12",
+      "source": "new"
+    }
+  ],
+  "old_orders_changed": [],
+  "old_orders_unchanged": [
+    {
+      "work_order_guid": "sms_2026_180ca2015aeb42c7acf63d104dbec510",
+      "work_order_no": "ZQ-JH-20261105150050738-1-测试机场-实飞C-194",
+      "start_date": "2026-11-01 08:30:00",
+      "end_date": "2026-11-01 08:31:56"
+    },
+    {
+      "work_order_guid": "sms_2026_18842ba716984d7b944356505db36980",
+      "work_order_no": "ZQ-JH-20261104180858754-1-测试机场-实飞C-193",
+      "start_date": "2026-11-01 15:33:51",
+      "end_date": "2026-11-01 16:33:51"
+    },
+    {
+      "work_order_guid": "sms_2026_32a739b91fd4407a8b9f6a1bda89eb0f",
+      "work_order_no": "ZQ-JH-20261104180858745-1-测试机场-实飞C-192",
+      "start_date": "2026-11-01 14:33:51",
+      "end_date": "2026-11-01 15:33:51"
+    },
+    {
+      "work_order_guid": "sms_2026_883bbb81c7b64a2a803d9e4c2b375d1a",
+      "work_order_no": "ZQ-JH-20261104180858745-2-测试机场-实飞C-195",
+      "start_date": "2026-11-11 16:30:00",
+      "end_date": "2026-11-11 17:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_8a665810ee1c4f7eaf38aaa7219702bc",
+      "work_order_no": "ZQ-JH-20261104180858754-2-测试机场-实飞C-196",
+      "start_date": "2026-11-11 16:30:00",
+      "end_date": "2026-11-11 17:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_99d23887716d4918862158e22dadec23",
+      "work_order_no": "ZQ-JH-20261102101924256-38-测试机场-实飞C-11",
+      "start_date": "2026-11-11 08:30:00",
+      "end_date": "2026-11-11 09:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_b07f5714835e486cb960c5a6326d28a8",
+      "work_order_no": "ZQ-JH-20261102101924256-37-智飞蛙跳机场 B-10",
+      "start_date": "2026-11-11 17:32:00",
+      "end_date": "2026-11-11 23:59:59"
+    },
+    {
+      "work_order_guid": "sms_2026_c3e7ae8811ad459d824c0ebb2d837a3e",
+      "work_order_no": "ZQ-JH-20261022192409554-11-测试机场-实飞C-16",
+      "start_date": "2026-11-11 17:31:00",
+      "end_date": "2026-11-11 23:59:59"
+    },
+    {
+      "work_order_guid": "sms_2026_491f83978bca4a739920cf0c12440da7",
+      "work_order_no": "ZQ-JH-20261104174429878-1-测试机场-实飞C-200",
+      "start_date": "2026-11-04 08:30:00",
+      "end_date": "2026-11-04 08:31:56"
+    },
+    {
+      "work_order_guid": "sms_2026_63fa74d753c84534b107d047cc9ad0ea",
+      "work_order_no": "ZQ-JH-20261104174429869-1-测试机场-实飞C-T1",
+      "start_date": "2026-11-11 17:29:00",
+      "end_date": "2026-11-15 17:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_b485b324785445e49da90f438f45d49c",
+      "work_order_no": "ZQ-JH-20261104174429869-1-测试机场-实飞C-199",
+      "start_date": "2026-11-02 08:30:00",
+      "end_date": "2026-11-02 08:31:56"
+    },
+    {
+      "work_order_guid": "sms_2026_c2966a46ea934f54a6ab3d05f4a3cff4",
+      "work_order_no": "ZQ-JH-20261110193238663-1-测试机场-实飞C-204",
+      "start_date": "2026-11-06 08:30:00",
+      "end_date": "2026-11-06 09:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_f99b1eff3ee9442ebc546fb70a1de971",
+      "work_order_no": "ZQ-JH-20261110193238636-1-测试机场-实飞C-203",
+      "start_date": "2026-11-05 08:30:00",
+      "end_date": "2026-11-05 09:30:00"
+    },
+    {
+      "work_order_guid": "sms_2026_f68adf88d3e24dda97e2e0d5ce83c806",
+      "work_order_no": "ZQ-JH-20261028154832643-11-测试机场-实飞C-17",
+      "start_date": "2026-11-11 17:37:00",
+      "end_date": "2026-11-11 23:59:59"
+    },
+    {
+      "work_order_guid": "tms_2026_8a3781b96118494a8faf8ba5c492b027",
+      "work_order_no": "ZQ-JH-20261015153526388-1-测试机场-实飞C-8",
+      "start_date": "2026-11-12 10:11:00",
+      "end_date": "2026-11-21 23:59:59"
+    },
+    {
+      "work_order_guid": "tms_2026_9faaff96723b44bd9ddf177b89ba1385",
+      "work_order_no": "ZQ-JH-20261015151751320-10-测试机场-实飞C-7",
+      "start_date": "2026-11-12 10:11:00",
+      "end_date": "2026-11-21 23:59:59"
+    }
+  ],
+  "manual_orders": [
+    {
+      "work_order_guid": "tms_2026_0532938d9dcb476bb5cfd0e4dc9afba7",
+      "work_order_no": "RX-JH-20261116090000001-1-1",
+      "airport": null,
+      "second_num": 0,
+      "start_date": "2026-11-01 00:00:00",
+      "end_date": "2026-11-01 23:59:59",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_b3f81a26a40f40e0903edddaaad2d63e",
+      "work_order_no": "RX-JH-20261116090000001-2-1",
+      "airport": null,
+      "second_num": 0,
+      "start_date": "2026-11-02 00:00:00",
+      "end_date": "2026-11-08 23:59:59",
+      "source": "new"
+    },
+    {
+      "work_order_guid": "tms_2026_2330e863ce4145aa968f7a569f37933a",
+      "work_order_no": "RX-JH-20261116090000001-3-1",
+      "airport": null,
+      "second_num": 0,
+      "start_date": "2026-11-09 00:00:00",
+      "end_date": "2026-11-14 18:30:00",
+      "source": "new"
+    }
+  ],
+  "unplaced": [
+    {
+      "work_order_guid": "tms_2026_59fee45c6ab942dc84b514221484ba2f",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场A-4",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-06 00:00:00 ~ 2026-11-06 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_a12cd31aa534457c931d353b6fea28e9",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场A-6",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-06 00:00:00 ~ 2026-11-06 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_e0cd7a147e2f4583a6dca2b66df89c28",
+      "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场A-7",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-06 00:00:00 ~ 2026-11-06 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_69751c8e912a4a5caf474adaa4af5374",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场A-11",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-01 00:00:00 ~ 2026-11-02 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_d7161af1df964ef3be96154a8912a875",
+      "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场A-13",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-01 00:00:00 ~ 2026-11-02 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_e26376017f4a44dc970319e8bd0d00b3",
+      "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场A-19",
+      "airport": "ap-a",
+      "second_num": 21600,
+      "allowed_window": "2026-11-03 00:00:00 ~ 2026-11-05 23:59:59",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_1e3233b97bca4a4c8e8b5ab6c883186f",
+      "work_order_no": "ZQ-JH-20261116090000002-1-苍岭机场A-24",
+      "airport": "ap-a",
+      "second_num": 14976,
+      "allowed_window": "2026-11-01 08:30:00 ~ 2026-11-07 12:30:00",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_4c391b0516754a9ea55c55f2a2fcb143",
+      "work_order_no": "ZQ-JH-20261116090000002-1-苍岭机场A-23",
+      "airport": "ap-a",
+      "second_num": 13248,
+      "allowed_window": "2026-11-01 08:30:00 ~ 2026-11-07 12:30:00",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_661cea87fd5b40c5b4ea7d24fd9392a0",
+      "work_order_no": "ZQ-JH-20261116090000002-2-苍岭机场A-27",
+      "airport": "ap-a",
+      "second_num": 14976,
+      "allowed_window": "2026-11-01 12:45:00 ~ 2026-11-07 18:30:00",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_a4c5ff8945384c3a949e4924a5aaa47f",
+      "work_order_no": "ZQ-JH-20261116090000002-2-苍岭机场A-26",
+      "airport": "ap-a",
+      "second_num": 13248,
+      "allowed_window": "2026-11-01 12:45:00 ~ 2026-11-07 18:30:00",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    },
+    {
+      "work_order_guid": "tms_2026_a1763a3865eb4fe0b1c3a2460e145925",
+      "work_order_no": "ZQ-JH-20261116090000002-3-苍岭机场A-30",
+      "airport": "ap-a",
+      "second_num": 14976,
+      "allowed_window": "2026-11-08 08:30:00 ~ 2026-11-14 12:30:00",
+      "reason": "最优机场在可排窗口内找不到容量，且无可抢占的旧单"
+    }
+  ],
+  "notes": []
+}

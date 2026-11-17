@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 MOCK_DIR = Path(__file__).resolve().parent / "mock_data"
 
@@ -44,6 +45,9 @@ PROJECT_NAME = "2026输检项目"
 AREA_CODE = "100112102106"
 LINE_A_GUID = "d1b2c3d4000041118222333444555ddd"
 LINE_B_GUID = "e1b2c3d4000041118222333444555eee"
+STRATEGY_C_GUID = "d1b2c3d4000041118222333444555ccc"   # 配电
+STRATEGY_D_GUID = "f1b2c3d4000041118222333444555ddd"   # 变电
+LINE_C_GUID = "a1b2c3d5000041118222333444555fff"       # 10kV 苍岭馈线
 
 # 机场台账（Java 里查 EquipAirportInfo）。AP-C 故意用未配置型号，验证保底分支
 AIRPORTS = {
@@ -58,6 +62,11 @@ CAPACITY_TABLE = [
     {"airportModel": "M30T", "speciality": "tms", "infrared": False, "item": "本体", "voltage": "110", "capacity": 8.0},
     {"airportModel": "M350H", "speciality": "tms", "infrared": False, "item": "通道", "voltage": "110", "capacity": 2.0},
     {"airportModel": "M30T", "speciality": "tms", "infrared": False, "item": "通道", "voltage": "110", "capacity": 3.0},
+    # 配电：本体按设备数，电压 AC10kV -> "10"
+    {"airportModel": "M350H", "speciality": "dms", "infrared": False, "item": "本体", "voltage": "10", "capacity": 6.0},
+    {"airportModel": "M30T", "speciality": "dms", "infrared": False, "item": "本体", "voltage": "10", "capacity": 4.0},
+    # 变电：整站按有效航点数，电压 AC500kV -> "500"
+    {"airportModel": "M350H", "speciality": "sms", "infrared": False, "item": "融合/例行", "voltage": "500", "capacity": 100.0},
 ]
 
 
@@ -68,7 +77,7 @@ def _common() -> dict:
     }
 
 
-def build_device(tower: dict, strategy_guid: str, line_name: str) -> dict:
+def build_device(tower: dict, strategy_guid: str, line_name: str, speciality: str = "tms") -> dict:
     """deviceList 元素 = 策略设备 + 内联台账字段。"""
     device = _common()
     device.update({
@@ -77,7 +86,7 @@ def build_device(tower: dict, strategy_guid: str, line_name: str) -> dict:
         "jobObjectDeviceGuid": tower["tower_guid"],
         "jobObjectName": line_name,
         "jobObjectDeviceName": tower["tower_name"],
-        "speciality": "tms",
+        "speciality": speciality,
         "span": str(tower["span"]),
         # ---- 以下 6 个是 Java 要查台账才能拿到的字段，这里内联 ----
         "coveringAirports": tower["covering_airports"],
@@ -93,18 +102,20 @@ def build_device(tower: dict, strategy_guid: str, line_name: str) -> dict:
 def build_plan(base: dict, *, seq: int, plan_guid: str, plan_no: str,
                pre_start: str, pre_end: str, cycle_start: str, cycle_end: str,
                insp_start: str, insp_end: str, one_day: int, time_period: str,
-               strategy_guid: str, job_object_num: int, frequency: str) -> dict:
+               strategy_guid: str, job_object_num: int, frequency: str,
+               speciality: str = "tms", work_nature: Optional[str] = None,
+               work_nature_sub: Optional[str] = None, voltage_level: str = "AC110kV") -> dict:
     plan = _common()
     plan.update({
         "planGuid": plan_guid, "demandGuid": "", "demandNo": "", "demandDeptCode": "",
         "planNo": plan_no,
-        "speciality": "tms",
-        "voltageLevel": "AC110kV",
+        "speciality": speciality,
+        "voltageLevel": voltage_level,
         "jobObject": base["job_object"],
         "jobObjectGuid": base["line_guid"],
         "inspectionFrequency": frequency,
-        "workNature": base["work_nature"],
-        "workNatureSub": base["work_nature_sub"],
+        "workNature": work_nature or base["work_nature"],
+        "workNatureSub": work_nature_sub or base["work_nature_sub"],
         "jobObjectNum": job_object_num,
         "cancelNum": -1, "workOrderNum": -1,
         "planType": "1", "expectedCompletionTime": "", "planSource": "",
@@ -131,13 +142,16 @@ def build_plan(base: dict, *, seq: int, plan_guid: str, plan_no: str,
 
 
 def build_strategy(guid: str, base: dict, *, frequency: str, one_day: int,
-                   time_period: str, device_list: list[dict], plan_list: list[dict]) -> dict:
+                   time_period: str, device_list: list[dict], plan_list: list[dict],
+                   speciality: str = "tms", work_nature: Optional[str] = None,
+                   work_nature_sub: Optional[str] = None) -> dict:
     strategy = _common()
     strategy.update({
         "planStrategyGuid": guid, "planSetGuid": PLAN_SET_GUID,
-        "speciality": "tms", "voltageLevel": "AC110kV",
+        "speciality": speciality, "voltageLevel": "AC110kV",
         "jobObject": base["job_object"], "jobObjectGuid": base["line_guid"],
-        "workNature": base["work_nature"], "workNatureSub": base["work_nature_sub"],
+        "workNature": work_nature or base["work_nature"],
+        "workNatureSub": work_nature_sub or base["work_nature_sub"],
         "frequency": frequency,
         "projectName": PROJECT_NAME, "projectId": PROJECT_ID, "hookProjectNum": 1,
         "projectType": "", "towerLabels": "", "areaCode": AREA_CODE, "workObjDetail": "",
@@ -216,6 +230,82 @@ def main() -> None:
                                 time_period="08:30:00-17:30:00",
                                 device_list=devices_a, plan_list=plans_a)
 
+    # ---------------- 策略 C：配电（dms）本体 8 基 ----------------
+    def covering_c(i: int) -> dict:
+        if i <= 5:
+            return {"covering_airports": "ap-a", "filter": 0, "filter_td": 0}
+        if i == 6:
+            return {"covering_airports": "ap-b", "filter": 1, "filter_td": 0}   # 过滤不通过 -> 人工
+        return {"covering_airports": "", "filter": 0, "filter_td": 0}          # 无覆盖 -> 人工
+
+    towers_c = build_towers(LINE_C_GUID, 8, covering_c, lambda i: 200 + i * 10)
+    devices_c = [build_device(t, STRATEGY_C_GUID, "10kV 苍岭馈线", speciality="dms")
+                 for t in towers_c]
+    base_c = {"job_object": "10kV 苍岭馈线", "line_guid": LINE_C_GUID,
+              "work_nature": "1", "work_nature_sub": "d-rcxs", "speciality": "dms",
+              "range_start": "2026-11-01 00:00:00", "range_end": "2026-11-03 23:59:59"}
+    no_c = "JH-20261116090000003"
+    plans_c = [
+        build_plan(base_c, seq=1, plan_guid="p-c-0001", plan_no=f"{no_c}-1",
+                   pre_start="2026-11-01 00:00:00", pre_end="2026-11-03 23:59:59",
+                   cycle_start="2026-11-01 00:00:00", cycle_end="2026-11-03 23:59:59",
+                   insp_start="2026-11-01 00:00:00", insp_end="2026-11-03 23:59:59",
+                   one_day=3, time_period="08:30:00-17:30:00",
+                   strategy_guid=STRATEGY_C_GUID, job_object_num=8, frequency="周期内1次",
+                   speciality="dms", work_nature="1", work_nature_sub="d-rcxs",
+                   voltage_level="AC10kV"),
+    ]
+    strategy_c = build_strategy(STRATEGY_C_GUID, base_c, frequency="周期内1次", one_day=3,
+                                time_period="08:30:00-17:30:00",
+                                device_list=devices_c, plan_list=plans_c,
+                                speciality="dms", work_nature="1", work_nature_sub="d-rcxs")
+
+    # ---------------- 策略 D：变电（sms）整站 2 台设备 ----------------
+    station_guid = "st-0001"
+    devices_d = []
+    for idx in (1, 2):
+        dev = _common()
+        dev.update({
+            "planStrategyGuid": STRATEGY_D_GUID,
+            "jobObjectGuid": station_guid,
+            "jobObjectDeviceGuid": f"st-0001-dev{idx}",
+            "jobObjectName": "110kV 苍岭变电站",
+            "jobObjectDeviceName": f"苍岭变电站#设备{idx}",
+            "speciality": "sms",
+            "span": "",
+            "coveringAirports": "ap-a",
+            "filter": 0, "filterTd": 0, "isDeleted": 0,
+            "sort": idx, "psrEquipCode": f"PSR-ST-{idx}",
+        })
+        devices_d.append(dev)
+    base_d = {"job_object": "110kV 苍岭变电站", "line_guid": station_guid,
+              "work_nature": "1", "work_nature_sub": "s-rcxs", "speciality": "sms",
+              "range_start": "2026-11-01 00:00:00", "range_end": "2026-11-05 23:59:59"}
+    no_d = "JH-20261116090000004"
+    plans_d = [
+        build_plan(base_d, seq=1, plan_guid="p-d-0001", plan_no=f"{no_d}-1",
+                   pre_start="2026-11-01 00:00:00", pre_end="2026-11-05 23:59:59",
+                   cycle_start="2026-11-01 00:00:00", cycle_end="2026-11-05 23:59:59",
+                   insp_start="2026-11-01 00:00:00", insp_end="2026-11-05 23:59:59",
+                   one_day=5, time_period="08:30:00-17:30:00",
+                   strategy_guid=STRATEGY_D_GUID, job_object_num=2, frequency="周期内1次",
+                   speciality="sms", work_nature="1", work_nature_sub="s-rcxs",
+                   voltage_level="AC500kV"),
+    ]
+    strategy_d = build_strategy(STRATEGY_D_GUID, base_d, frequency="周期内1次", one_day=5,
+                                time_period="08:30:00-17:30:00",
+                                device_list=devices_d, plan_list=plans_d,
+                                speciality="sms", work_nature="1", work_nature_sub="s-rcxs")
+
+    device_routes = [
+        {"deviceGuid": station_guid, "deviceType": "sms", "trackType": "11",
+         "taskPoint": 40, "validating": "1", "isDeleted": 0},
+        {"deviceGuid": station_guid, "deviceType": "sms", "trackType": "11",
+         "taskPoint": 32, "validating": "1", "isDeleted": 0},
+        {"deviceGuid": station_guid, "deviceType": "sms", "trackType": "12",
+         "taskPoint": 999, "validating": "1", "isDeleted": 0},   # 不同航迹，不参与
+    ]
+
     # ---------------- 策略 B：通道 5 基，两段时段 ----------------
     def covering_b(i: int) -> dict:
         return {"covering_airports": "ap-a" if i <= 3 else "", "filter": 0, "filter_td": 0}
@@ -270,6 +360,7 @@ def main() -> None:
         "totalWorkNum": -1, "completeWorkNum": -1, "statsUpdateTime": "",
     })
 
+    # 基础场景：输电（tms）本体 + 通道
     payload = {
         "planSetInfo": plan_set,
         "planStrategyList": [strategy_a, strategy_b],
@@ -277,12 +368,25 @@ def main() -> None:
         "airports": AIRPORTS,
         "capacityTable": CAPACITY_TABLE,
     }
-
     out = MOCK_DIR / "split_input.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"已生成 {out} ({out.stat().st_size} bytes)")
-    print(f"  策略A：{len(devices_a)} 基杆塔 / {len(plans_a)} 条子计划")
-    print(f"  策略B：{len(devices_b)} 基杆塔 / {len(plans_b)} 条子计划")
+    print(f"  策略A 输电本体：{len(devices_a)} 基杆塔 / {len(plans_a)} 条子计划")
+    print(f"  策略B 输电通道：{len(devices_b)} 基杆塔 / {len(plans_b)} 条子计划")
+
+    # 三类巡检齐全：输电 + 配电 + 变电
+    multi = {
+        "planSetInfo": {**plan_set, "planSetName": "2026年11月三类巡检计划"},
+        "planStrategyList": [strategy_a, strategy_b, strategy_c, strategy_d],
+        "airports": AIRPORTS,
+        "capacityTable": CAPACITY_TABLE,
+        "deviceRoutes": device_routes,
+    }
+    out_multi = MOCK_DIR / "split_input_multi.json"
+    out_multi.write_text(json.dumps(multi, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"已生成 {out_multi} ({out_multi.stat().st_size} bytes)")
+    print(f"  策略C 配电本体：{len(devices_c)} 基杆塔 / {len(plans_c)} 条子计划")
+    print(f"  策略D 变电整站：{len(devices_d)} 台设备 / {len(plans_d)} 条子计划 / 航点 {len(device_routes)} 条")
     print(f"  机场 {len(AIRPORTS)} 个 / 承载力 {len(CAPACITY_TABLE)} 条")
 
 

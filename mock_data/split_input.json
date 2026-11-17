@@ -1325,6 +1325,30 @@
       "item": "通道",
       "voltage": "110",
       "capacity": 3.0
+    },
+    {
+      "airportModel": "M350H",
+      "speciality": "dms",
+      "infrared": false,
+      "item": "本体",
+      "voltage": "10",
+      "capacity": 6.0
+    },
+    {
+      "airportModel": "M30T",
+      "speciality": "dms",
+      "infrared": false,
+      "item": "本体",
+      "voltage": "10",
+      "capacity": 4.0
+    },
+    {
+      "airportModel": "M350H",
+      "speciality": "sms",
+      "infrared": false,
+      "item": "融合/例行",
+      "voltage": "500",
+      "capacity": 100.0
     }
   ]
 }

@@ -397,3 +397,105 @@ class TestReworkReadiness(unittest.TestCase):
         self.assertEqual(plan_limit(morning), 14400)      # 时段 < 配额
         self.assertEqual(plan_limit(afternoon), 20700)    # 时段 < 配额
         self.assertEqual(plan_limit(full), 23040)         # 配额 < 时段
+
+
+class TestOrderSelfContained(unittest.TestCase):
+    """工单必须自己带齐重排所需的 7 项，重排不依赖 plan。
+
+    pre_start_date / pre_end_date / time_period 是生成时从计划继承的工单列
+    （Java WorkOrderInfo 本来就有这三列），不是重排时再回查计划。
+    """
+
+    REWORK_FIELDS = {
+        "work_order_guid", "cycle_airport_guid", "second_num",
+        "start_date", "end_date", "capacity_limit",
+        "pre_start_date", "pre_end_date", "time_period",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        payload = load_input()
+        cls.orders, cls.details, _ = split_all(payload)
+        cls.plans = {p["planGuid"]: p for s in payload["planStrategyList"]
+                     for p in s["planList"]}
+
+    def test_every_order_carries_rework_fields(self):
+        for order in self.orders:
+            missing = self.REWORK_FIELDS - set(order)
+            self.assertEqual(missing, set(), f"{order['work_order_no']} 缺 {missing}")
+
+    def test_inherited_time_matches_plan(self):
+        for order in self.orders:
+            plan = self.plans[order["plan_guid"]]
+            self.assertEqual(order["pre_start_date"], plan["preStartDate"])
+            self.assertEqual(order["pre_end_date"], plan["preEndDate"])
+            self.assertEqual(order["time_period"], plan["timePeriod"])
+
+    def test_rework_needs_no_plan_lookup(self):
+        """只用工单字段就能判断能不能挪：窗口 + 上限 + 时长。"""
+        for order in self.orders:
+            self.assertTrue(order["pre_start_date"])
+            self.assertTrue(order["pre_end_date"])
+            self.assertTrue(order["time_period"])
+            if order["inspection_method"] == "1":
+                self.assertIsNotNone(order["capacity_limit"])
+                self.assertIsNotNone(order["second_num"])
+
+
+class TestThreeDisciplines(unittest.TestCase):
+    """三类巡检：输电 tms / 配电 dms / 变电 sms 都能拆。"""
+
+    @classmethod
+    def setUpClass(cls):
+        payload = json.loads((DATA_DIR / "split_input_multi.json").read_text(encoding="utf-8"))
+        cls.payload = payload
+        cls.orders, cls.details, cls.results = split_all(payload)
+
+    def test_conservation(self):
+        self.assertEqual(verify(self.results), [])
+
+    def test_all_three_disciplines_present(self):
+        specs = {o["plan"]["speciality"] for o in self.orders}
+        self.assertEqual(specs, {"tms", "dms", "sms"})
+
+    def test_substation_single_order_whole(self):
+        sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"]
+        self.assertEqual(len(sms), 1, "变电整单不拆")
+        order = sms[0]
+        # 72 航点 / 100 点每天 * 28800 = 20736s，只算一次记在首台
+        self.assertEqual(order["second_num"], 20736)
+        self.assertEqual(order["parent_device_num"], 2)
+        self.assertEqual(order["plan"]["jobObjectGuid"], "st-0001")
+
+    def test_substation_uses_route_points_not_device_count(self):
+        sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"][0]
+        # 若按设备数(2台)算会得到 57600s，按航点算才是 20736s
+        self.assertNotEqual(sms["second_num"], 57600)
+
+    def test_distribution_split_by_capacity(self):
+        dms = [o for o in self.orders
+               if o["plan"]["speciality"] == "dms" and o["inspection_method"] == "1"]
+        # 5 基机场，每基 4800s，limit 23040 -> 4 + 1
+        self.assertEqual(sum(o["parent_device_num"] for o in dms), 5)
+        self.assertEqual(len(dms), 2)
+        for order in dms:
+            self.assertLessEqual(order["second_num"], order["capacity_limit"])
+
+    def test_distribution_manual_bucket(self):
+        dms_manual = [o for o in self.orders
+                      if o["plan"]["speciality"] == "dms" and o["inspection_method"] == "2"]
+        self.assertEqual(len(dms_manual), 1)
+        self.assertEqual(dms_manual[0]["parent_device_num"], 3)
+
+    def test_substation_route_filtering_by_track_type(self):
+        """同站不同航迹的 999 航点不能算进来。"""
+        sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"][0]
+        self.assertEqual(sms["second_num"], 20736)   # 只有 trackType=11 的 40+32
+
+    def test_substation_falls_back_without_route_data(self):
+        payload = json.loads((DATA_DIR / "split_input_multi.json").read_text(encoding="utf-8"))
+        payload.pop("deviceRoutes")
+        orders, _, _ = split_all(payload)
+        sms = [o for o in orders if o["plan"]["speciality"] == "sms"][0]
+        self.assertIn("保底1小时", sms["schedule_reason"])
+        self.assertEqual(sms["second_num"], 3600)
