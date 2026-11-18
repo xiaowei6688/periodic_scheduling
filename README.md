@@ -10,8 +10,8 @@
 
 ```bash
 python build_mock.py                             # 生成 mock_data/split_input.json
-python split_work_orders.py                      # 拆单
-python -m unittest discover -p "test_*.py" -v    # 41 条测试
+python main.py                                   # 完整流程：拆单 → 取旧单 → 重排
+python -m unittest discover -p "test_*.py" -v    # 全量回归
 ```
 
 ---
@@ -281,7 +281,8 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 
 | 文件 | 说明 |
 |---|---|
-| `split_work_orders.py` | 拆单实现（唯一需要集成的文件） |
+| `main.py` | **统一入口**：拆单 → 取旧单合并 → 重排，一次跑完输出最终结果 |
+| `split_work_orders.py` | 拆单实现（唯一需要集成的拆单文件） |
 | `build_mock.py` | 生成 `mock_data/split_input.json` |
 | `test_split.py` | 35 条规则 + 输入契约测试 |
 | `test_customer_data.py` | 7 条客户真实数据回归 |
@@ -384,6 +385,9 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 只负责「拉旧工单 → 过滤 → 归一化 → 和新工单合并成待排集合」。不重排、不落库。
 
 ```bash
+# 一步到位：拆单 + 取范围 + 拉旧单 + 合并 + 重排（最终结果 out/result.json）
+python main.py --existing-file out/existing_orders.json --out out/result.json
+
 # 在线：拆单 + 取范围 + 拉旧单 + 合并
 python rework_orders.py --input mock_data/split_input.json --out out/rework_set.json
 

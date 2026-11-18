@@ -6,17 +6,15 @@
 也就是 Java pendingSupplementSlices（5093-5118）里那段贪心装箱。
 
 输入：
-    mock_data/plan_payload.json    计划数据（planSetInfo + planStrategyList{deviceList, planList}）
-    mock_data/device_ledger.json   杆塔台账（covering_airports / filter / filter_td / span / sort）
-    mock_data/airport_ledger.json  机场台账（airport_model 等）
-    mock_data/capacity_config.json 承载力配置
+    mock_data/split_input.json    自包含报文（planSetInfo + planStrategyList{deviceList, planList}
+                                  + airports + capacityTable）
 
 输出：
     out/work_orders.json   工单主表 + 明细（不含 start_date/end_date，留给排班阶段）
 
 用法：
     python split_work_orders.py
-    python split_work_orders.py --payload mock_data/plan_payload.json --out out/work_orders.json
+    python split_work_orders.py --data-dir mock_data --out out/work_orders.json
 """
 
 from __future__ import annotations
@@ -732,14 +730,6 @@ def emit_orders(results: list[PlanSplitResult], ledgers: Ledgers
             result.details.extend(order_details)
 
     return orders, details
-
-
-def split_plan(plan: dict, strategy: dict, ledgers: Ledgers,
-               sequence_start: int = 1) -> tuple[PlanSplitResult, int]:
-    """单计划便捷入口（不做跨计划排序）。返回 (结果, 下一个可用序号)。"""
-    result = prepare_plan(plan, strategy, ledgers)
-    orders, _ = emit_orders([result], ledgers)
-    return result, sequence_start + len(orders)
 
 
 # ---------------------------------------------------------------- 主流程

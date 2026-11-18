@@ -35,7 +35,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -45,7 +44,6 @@ from typing import Any, Iterable, Optional
 
 from split_work_orders import (
     INSPECTION_AIRPORT,
-    INSPECTION_MANUAL,
     split_all,
     verify,
 )
@@ -248,6 +246,7 @@ def _parse_dt(value: Any) -> Optional[str]:
 class ReworkSet:
     new_orders: list[dict] = field(default_factory=list)
     old_orders: list[dict] = field(default_factory=list)
+    details: list[dict] = field(default_factory=list)
     window: dict = field(default_factory=dict)
     filter_stats: Optional[ExistingFilterStats] = None
 
@@ -275,7 +274,8 @@ def order_date_span(orders: Iterable[dict]) -> tuple[Optional[str], Optional[str
 
 
 def build_rework_set(new_orders: list[dict], existing_rows: list[dict],
-                     window_start: str, window_end: str) -> ReworkSet:
+                     window_start: str, window_end: str,
+                     *, details: Optional[list[dict]] = None) -> ReworkSet:
     """把新工单和过滤后的旧工单合成待排集合。
 
     两种工单的约束来源不同，不能互相套：
@@ -287,8 +287,36 @@ def build_rework_set(new_orders: list[dict], existing_rows: list[dict],
     kept, stats = filter_reworkable(existing_rows)
     old_orders = [normalize_existing(row) for row in kept]
     return ReworkSet(new_orders=list(new_orders), old_orders=old_orders,
+                     details=list(details or []),
                      window={"start": window_start, "end": window_end},
                      filter_stats=stats)
+
+
+def collect_rework_set(payload: dict, existing_rows: Optional[list[dict]] = None,
+                       *, save_existing: Optional[str] = None) -> ReworkSet:
+    """拆单 → 定窗口 → 取旧工单 → 过滤归一化，合并成待排集合。
+
+    existing_rows=None 时按新工单窗口在线调接口拉取；
+    save_existing 非空时把拉到的旧工单原样存到该文件。
+    """
+    orders, details, results = split_all(payload)
+    problems = verify(results)
+    if problems:
+        raise ValueError("拆单守恒校验失败：" + "；".join(problems))
+    window_start, window_end = order_date_span(orders)
+    if not window_start or not window_end:
+        raise ValueError("新工单缺少 pre 窗口，无法确定拉取范围")
+    if existing_rows is None:
+        existing_rows = fetch_existing_orders(window_start, window_end)
+    elif save_existing:
+        save_existing = None
+    if save_existing:
+        path = Path(save_existing)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(existing_rows, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+    return build_rework_set(orders, existing_rows, window_start, window_end,
+                            details=details)
 
 
 # ---------------------------------------------------------------- 主流程
@@ -313,42 +341,30 @@ def main() -> None:
         print(json.dumps([normalize_existing(r) for r in kept][:3], ensure_ascii=False, indent=2))
         return
 
-    # 1) 拆单
+    # 1) 拆单 + 定范围 + 取旧工单 + 过滤合并
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
-    orders, details, results = split_all(payload)
-    problems = verify(results)
-    if problems:
-        print("拆单守恒校验失败：", *problems, sep="\n  ")
-        raise SystemExit(1)
-    print(f"拆单：{len(orders)} 张工单 / {len(details)} 条明细，守恒通过")
-
-    # 2) 定范围：新工单最早 pre_start ~ 最晚 pre_end
-    window_start, window_end = order_date_span(orders)
-    if not window_start or not window_end:
-        raise SystemExit("新工单缺少 pre 窗口，无法确定拉取范围")
-    print(f"重排范围：{window_start} ~ {window_end}")
-
-    # 3) 取旧工单
+    existing_rows = None
     if args.existing_file:
         existing_rows = json.loads(Path(args.existing_file).read_text(encoding="utf-8"))
         print(f"离线读取旧工单：{len(existing_rows)} 条（{args.existing_file}）")
-    else:
-        try:
-            existing_rows = fetch_existing_orders(window_start, window_end)
-        except ApiError as exc:
-            print(f"接口获取失败：{exc}")
-            print("可用 --existing-file 离线模式，或检查 MAIN_CYCLE_TOKEN / MAIN_CYCLE_AUTH_HEADER")
-            raise SystemExit(2)
-        print(f"接口拉取旧工单：{len(existing_rows)} 条")
-        if args.save_existing:
-            Path(args.save_existing).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.save_existing).write_text(
-                json.dumps(existing_rows, ensure_ascii=False, indent=2), encoding="utf-8")
-            print(f"原始响应已存：{args.save_existing}")
+    try:
+        rework = collect_rework_set(
+            payload, existing_rows,
+            save_existing=args.save_existing if existing_rows is None else None)
+    except ApiError as exc:
+        print(f"接口获取失败：{exc}")
+        print("可用 --existing-file 离线模式，或检查 MAIN_CYCLE_TOKEN / MAIN_CYCLE_AUTH_HEADER")
+        raise SystemExit(2)
+    except ValueError as exc:
+        print(str(exc))
+        raise SystemExit(1)
 
-    # 4) 过滤 + 合并
-    rework = build_rework_set(orders, existing_rows, window_start, window_end)
+    # 2) 汇总
     stats = rework.filter_stats
+    print(f"拆单：{len(rework.new_orders)} 张工单 / {len(rework.details)} 条明细，守恒通过")
+    print(f"重排范围：{rework.window['start']} ~ {rework.window['end']}")
+    if args.save_existing:
+        print(f"原始响应已存：{args.save_existing}")
     print(f"旧工单过滤：总计 {stats.total} -> 保留 {stats.kept}"
           f"（作废 {stats.cancelled} / 延期 {stats.delayed} / 其他 {len(stats.dropped) - stats.cancelled - stats.delayed}）")
 

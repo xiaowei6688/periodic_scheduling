@@ -33,7 +33,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from split_work_orders import (
     INSPECTION_AIRPORT,
@@ -815,7 +815,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="重排：新工单插入 + 旧工单连续重排 + 强插建议")
     parser.add_argument("--input", default=str(DEFAULT_INPUT))
     parser.add_argument("--out", default=str(DEFAULT_OUTPUT))
-    parser.add_argument("--enforce-quota", action="store_true", help="按 80% 日配额约束排班")
+    parser.add_argument("--enforce-quota", action="store_true", help="按 80%% 日配额约束排班")
     args = parser.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
