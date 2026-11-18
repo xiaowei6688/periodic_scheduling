@@ -495,6 +495,37 @@ python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 8
 - `insert_rework` —— 按规则插单，产生一条重排链
 - `force_insert` —— 排不妥，给出强插建议（含受保护占用者清单）
 
+### 输出结构：最终工单分两组
+
+`rework_result.json` 把排班后的最终效果拆成两组，再加附注：
+
+```jsonc
+{
+  "entry": "insert_rework",
+  "window": {"start": "...", "end": "..."},
+
+  // ① 新增组：所有新工单，start_date/end_date 已排定；排不下的为 null
+  "new": [
+    { "...原新工单字段...", "start_date": "2026-12-02 15:30:00", "end_date": "2026-12-02 17:30:00" }
+  ],
+
+  // ② 修改组：按 work_order_guid 修改的旧工单，只带新起止时间
+  "update": [
+    { "work_order_guid": "tms_2026_xxx", "work_order_no": "...",
+      "start_date": "2026-12-04 15:30:00", "end_date": "2026-12-04 17:30:00" }
+  ],
+
+  // 附注
+  "unplaced_new": [...],
+  "force_proposals": [...],
+  "rework_chain": [...],
+  "warnings": [...]
+}
+```
+
+- `new`：机场新单带排定的 `start_date/end_date`；人工新单带周窗口（`week_start/week_end` 同样落到这两个字段）；未排下的保持 `null`
+- `update`：被挪动的旧机场单 + 重排的旧人工单，消费者按 `work_order_guid` 直接 UPDATE 时间
+
 ### 关键设计约定
 
 1. **占用用 `secondNum`，不用 `endDate-startDate`**（测试环境时间跨度不可信）。
@@ -507,3 +538,33 @@ python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 8
 
 > 当前 `rework_set.json` 里新工单是 mock 机场（ap-a/b/c），旧工单是真实机场 GUID，
 > 两边机场不同所以重排链为 0 步 —— 这是测试环境数据错位，不是算法问题。
+
+---
+
+## 12. 文档符合性核对结论（已验证）
+
+结合三份文档的重排规则逐条核对 `rework_algorithm.py`，本轮修掉 4 处不符：
+
+| # | 文档依据 | 原实现 | 修正 |
+|---|---|---|---|
+| 1 | 接口 6.1「同计划周负载最少 → 全局周负载 → 均匀目标」 | 只按全局周负载选周，缺同计划层 | 三级排序：同计划负载 → 全局负载 → 周早晚 |
+| 2 | 接口 5.2「历史工单预执行窗口须与请求范围相交」 | 状态 9 非变电一律可重排 | 加窗口相交判定，不相交不进入本次任务 |
+| 3 | 文档2 §五「每步按当前工单自身优先级」 | 抢占候选按 guid 字典序 | 按 `_priority` 排序（变电→时段→专业→oneDay→窗口→时间） |
+| 4 | 文档2 §六 / Java 6572「未能排下的保留窗口不计真实占用」 | 一律按 start/end 占位 | 读 `scheduleReason`，含「未能排下」者不占日历 |
+
+新增 3 条测试锁定（`test_rework_algorithm`）：
+
+- `test_reworkable_window_must_intersect_range`
+- `test_unplaced_reason_not_occupied`
+- `test_priority_smaller_window_first`
+
+### 仍有意留白 / 待平台口径的项
+
+| 项 | 文档依据 | 现状 |
+|---|---|---|
+| 「时间调整」出口 | 文档2 §四（方式及上限待确认） | 未实现，暂不并入强插 |
+| 强插前展示「直接/间接受影响计划与工单、拟更新清单」 | FR07 | 只回 order + 受保护占用者，未列全量影响链 |
+| 人工「班组产能核验」 | FR08 | 无产能数据，只做周分散 |
+| 「参与占用 ≠ 允许被抢占」的额外允许标志 | FR06 | 未建模，默认状态 9 非变电全部可被抢占 |
+| 排班缓存/事务边界、状态码回写 | 接口 5.3 / 6.2 | 不落库，属平台侧 |
+| `88%/80% 配额` 默认开关 | 接口 4.3 | 做成 `--enforce-quota` 可选项，默认关 |

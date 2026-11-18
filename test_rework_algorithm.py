@@ -12,6 +12,9 @@ import unittest
 
 from rework_algorithm import (
     Calendar,
+    Scheduler,
+    _occupy_existing,
+    _priority,
     canonicalize,
     categorize_old,
     effective_limit,
@@ -134,6 +137,33 @@ class TestLayer2(unittest.TestCase):
                 cat = categorize_old(orders, *DEFAULT_WINDOW)
                 self.assertEqual([o["guid"] for o in cat.fixed], ["f"])
 
+    def test_reworkable_window_must_intersect_range(self):
+        """预执行窗口与请求范围不相交的状态9工单，不进入本次任务（接口 5.2）。"""
+        inside = canonicalize(old_order("in", 3600, "2026-12-05 08:00:00", "2026-12-05 09:00:00",
+                                        "9", pre_start="2026-12-05 00:00:00",
+                                        pre_end="2026-12-05 23:59:59"))
+        outside = canonicalize(old_order("out", 3600, "2026-11-01 08:00:00", "2026-11-01 09:00:00",
+                                         "9", pre_start="2026-11-01 00:00:00",
+                                         pre_end="2026-11-01 23:59:59"))
+        cat = categorize_old([inside, outside], *DEFAULT_WINDOW)
+        self.assertEqual([o["guid"] for o in cat.reworkable], ["in"])
+        self.assertEqual(cat.fixed, [])
+
+    def test_unplaced_reason_not_occupied(self):
+        """已标记「未能排下」的排队工单，保留窗口不是真实占用（文档2 §六）。"""
+        sched = Scheduler(*DEFAULT_WINDOW)
+        order = canonicalize(old_order("x", 3600, "2026-12-01 08:00:00",
+                                       "2026-12-01 09:00:00", "9"))
+        order["schedule_reason"] = "超量均摊；未能排下"
+        _occupy_existing(sched, order, [])
+        self.assertEqual(sched.calendar("AP").occupied("2026-12-01"), [])
+
+    def test_priority_smaller_window_first(self):
+        """同等条件下，原始时间窗口越小优先级越高（文档2 §四）。"""
+        a = canonicalize(new_order("a", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59"))
+        b = canonicalize(new_order("b", 7200, "2026-12-01 00:00:00", "2026-12-10 23:59:59"))
+        self.assertLess(_priority(a), _priority(b))
+
 
 class TestCalendar(unittest.TestCase):
     def test_free_intervals(self):
@@ -251,6 +281,44 @@ class TestLayer8(unittest.TestCase):
         result = schedule_manual([canonicalize(o) for o in orders],
                                  "2026-11-01 00:00:00", "2026-11-30 23:59:59")
         self.assertEqual(result[0]["month"], "2026-12")
+
+
+class TestFinalOutput(unittest.TestCase):
+    """排班后的最终输出：新增一组 + 按 guid 修改的旧单一组。"""
+
+    def test_two_group_shape(self):
+        new, old, window = build_cbd_scenario()
+        result = rework(new, old, *window)
+        out = result.to_dict()
+        self.assertEqual(set(out), {"entry", "window", "new", "update",
+                                    "unplaced_new", "force_proposals",
+                                    "rework_chain", "warnings"})
+
+    def test_new_group_carries_scheduled_times(self):
+        new, old, window = build_cbd_scenario()
+        result = rework(new, old, *window)
+        c = next(o for o in result.new_orders_out if o["work_order_guid"] == "C")
+        self.assertEqual(c["start_date"], "2026-12-02 15:30:00")
+        self.assertEqual(c["end_date"], "2026-12-02 17:30:00")
+
+    def test_update_group_is_keyed_by_guid(self):
+        new, old, window = build_cbd_scenario()
+        result = rework(new, old, *window)
+        guids = sorted(u["work_order_guid"] for u in result.update_orders)
+        self.assertEqual(guids, ["B", "D"])
+        d = next(u for u in result.update_orders if u["work_order_guid"] == "D")
+        self.assertEqual(set(d), {"work_order_guid", "work_order_no", "start_date", "end_date"})
+        self.assertTrue(d["start_date"].startswith("2026-12-05"))
+
+    def test_unplaced_new_keeps_null_times(self):
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
+        new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
+        result = rework(new, old, *window)
+        c = next(o for o in result.new_orders_out if o["work_order_guid"] == "C")
+        self.assertIsNone(c["start_date"])
+        self.assertIsNone(c["end_date"])
+        self.assertEqual(len(result.unplaced), 1)
 
 
 if __name__ == "__main__":

@@ -161,6 +161,8 @@ def canonicalize(order: dict) -> dict:
             "end": order.get("end_date"),
             "source": "existing",
             "status": str(order.get("work_order_status") or ""),
+            "schedule_reason": order.get("schedule_reason")
+            or (order.get("raw") or {}).get("scheduleReason"),
             "raw": order,
         }
     plan = order.get("plan") or {}
@@ -355,12 +357,23 @@ class Categorized:
     warnings: list[str] = field(default_factory=list)
 
 
+def _window_intersects(order: dict, window_start: str, window_end: str) -> bool:
+    """工单的预执行窗口是否与请求范围相交（接口说明 5.2）。"""
+    s = parse_dt(order.get("pre_start")) or parse_dt(order.get("start"))
+    e = parse_dt(order.get("pre_end")) or parse_dt(order.get("end"))
+    ws = parse_dt(window_start)
+    we = parse_dt(window_end)
+    if s is None or e is None or ws is None or we is None:
+        return True
+    return not (e < ws or s > we)
+
+
 def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Categorized:
     """把旧工单分成「固定占用」和「可重排」。
 
     规则（接口说明 5.2）：
       - 变电（sms）历史工单保持固定占用，不重排
-      - 状态 9 且非变电 → 可重排
+      - 状态 9 且非变电 → 可重排（且预执行窗口须与请求范围相交）
       - 状态 8/12/16 → 固定占用（16 只有预计时长>0 才占位）
       - 状态 16 且预计时长<=0 → 不占位
     """
@@ -372,7 +385,9 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
         status = order["status"]
         speciality = order.get("speciality") or ""
         if status == STATUS_QUEUED and speciality != "sms":
-            result.reworkable.append(order)
+            if _window_intersects(order, window_start, window_end):
+                result.reworkable.append(order)
+            # 预执行窗口与请求范围不相交：不进入本次任务，也不占本次日历
         elif status in STATUS_FIXED:
             if status == "16" and order["seconds"] <= 0:
                 continue  # 16 无时长不占位
@@ -387,7 +402,13 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
 
 
 def _occupy_existing(sched: Scheduler, order: dict, warnings: list[str]) -> None:
-    """把已有工单的当前起止时间放进日历（L5 共享占用 + 补齐占用）。"""
+    """把已有工单的当前起止时间放进日历（L5 共享占用 + 补齐占用）。
+
+    已标记「未能排下」的排队工单，其保留窗口不是真实执行占用，不计入日历
+    （文档2 §六 / Java 6572-6573）。
+    """
+    if "未能排下" in (order.get("schedule_reason") or ""):
+        return
     start = parse_dt(order.get("start"))
     end = parse_dt(order.get("end"))
     if start is None or end is None:
@@ -441,7 +462,9 @@ def _try_place(sched: Scheduler, order: dict, banned: set[str], depth: int,
         cal = sched.calendar(order["airport"])
         candidates = [g for g in cal.occupants(day)
                       if g in sched.reworkable_guids and g not in banned and g != order["guid"]]
-        for occ_guid in sorted(candidates):
+        # 抢占候选按「自身规则优先级」排序（文档2 §五：每步按当前工单自身优先级判断）
+        candidates.sort(key=lambda g: _priority(sched.orders[g]))
+        for occ_guid in candidates:
             occ = sched.orders[occ_guid]
             occ_cal = sched._cal_by_order(occ)
             occ_slot = occ_cal.slots.get(occ_guid)
@@ -556,28 +579,28 @@ def schedule_manual(orders: list[dict], window_start: str, window_end: str) -> l
             continue
         by_plan.setdefault(order.get("plan_guid") or order["guid"], []).append(order)
 
-    week_load: dict[str, int] = {}      # 周起始日 -> 已排数量
+    week_load: dict[str, int] = {}             # 全局：周起始日 -> 已排数量
+    plan_week_load: dict[str, dict[str, int]] = {}   # 同计划：plan -> {周起始日: 数量}
     output: list[dict] = []
     for plan_guid, plan_orders in sorted(by_plan.items()):
+        plane = plan_week_load.setdefault(plan_guid, {})
         start, end = movable_window(plan_orders[0], window_start, window_end)
         days = iter_days(start, end)
         months = _month_chunks(days)
         counts = largest_remainder_split(len(plan_orders), [len(m) for m in months])
         cursor = 0
         for month_days, count in zip(months, counts):
-            assigned = 0
-            # 每个月的周依次试排，优先同计划负载最少的周，再看全局负载
             for order in plan_orders[cursor:cursor + count]:
-                best_week = None
-                best_key = None
+                best = None
+                # ① 同计划周负载最少 ② 再看全局周负载 ③ 均匀目标近似：更早的周优先
                 for day in month_days:
                     ws, we = week_window(day, month_days, window_start, window_end)
                     week_key = ws.strftime(DAY_FMT)
-                    key = (week_load.get(week_key, 0), ws)
-                    if best_key is None or key < best_key:
-                        best_key = key
-                        best_week = (week_key, ws, we)
-                week_key, ws, we = best_week
+                    key = (plane.get(week_key, 0), week_load.get(week_key, 0), ws)
+                    if best is None or key < best[0]:
+                        best = (key, week_key, ws, we)
+                _, week_key, ws, we = best
+                plane[week_key] = plane.get(week_key, 0) + 1
                 week_load[week_key] = week_load.get(week_key, 0) + 1
                 output.append({
                     "work_order_guid": order["guid"],
@@ -587,7 +610,6 @@ def schedule_manual(orders: list[dict], window_start: str, window_end: str) -> l
                     "week_start": dt_str(ws),
                     "week_end": dt_str(we),
                 })
-                assigned += 1
             cursor += count
     return output
 
@@ -609,19 +631,21 @@ class ReworkResult:
     fixed_count: int = 0
     reworkable_count: int = 0
     warnings: list[str] = field(default_factory=list)
+    # ---- 排班后的最终工单：两组 ----
+    new_orders_out: list[dict] = field(default_factory=list)     # 新增（含排定 start/end）
+    update_orders: list[dict] = field(default_factory=list)      # 需按 guid 修改的旧工单
 
     def to_dict(self) -> dict:
         return {
             "entry": self.entry,
             "window": {"start": self.window_start, "end": self.window_end},
-            "new_placements": self.new_placements,
-            "rework_chain": [s.__dict__ for s in self.rework_steps],
-            "changed_old_orders": self.changed_old_orders,
-            "unplaced": self.unplaced,
+            # ---- 最终工单效果：两组 ----
+            "new": self.new_orders_out,                 # 新增工单（start/end 已排定；未排下为 null）
+            "update": self.update_orders,               # 需按 work_order_guid 修改的旧工单
+            # ---- 附注 ----
+            "unplaced_new": self.unplaced,
             "force_proposals": [p.__dict__ for p in self.force_proposals],
-            "manual_schedule": self.manual_schedule,
-            "fixed_count": self.fixed_count,
-            "reworkable_count": self.reworkable_count,
+            "rework_chain": [s.__dict__ for s in self.rework_steps],
             "warnings": self.warnings,
         }
 
@@ -729,6 +753,46 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     manual_orders = new_manual + manual_old
     if manual_orders:
         result.manual_schedule = schedule_manual(manual_orders, window_start, window_end)
+
+    # ---- 输出：最终工单两组 ----
+    # 新增组：所有新工单（机场 + 人工），带上排定的起止时间；未排下的保持 null
+    placed_map = {p["work_order_guid"]: p for p in result.new_placements}
+    manual_map = {m["work_order_guid"]: m for m in result.manual_schedule}
+    new_out: list[dict] = []
+    for order in new_airport:
+        item = dict(order.get("raw") or order)
+        p = placed_map.get(order["guid"])
+        item["start_date"] = p["start"] if p else None
+        item["end_date"] = p["end"] if p else None
+        new_out.append(item)
+    for order in new_manual:
+        item = dict(order.get("raw") or order)
+        m = manual_map.get(order["guid"])
+        item["start_date"] = m["week_start"] if m else None
+        item["end_date"] = m["week_end"] if m else None
+        new_out.append(item)
+    result.new_orders_out = new_out
+
+    # 修改组：需按 work_order_guid 修改的旧工单（被挪动的机场旧单 + 重排的旧人工单）
+    old_manual_guids = {o["guid"] for o in manual_old}
+    update_out: list[dict] = []
+    for item in result.changed_old_orders:
+        canonical = sched.orders.get(item["work_order_guid"])
+        update_out.append({
+            "work_order_guid": item["work_order_guid"],
+            "work_order_no": (canonical or {}).get("work_order_no"),
+            "start_date": item["new_start"],
+            "end_date": item["new_end"],
+        })
+    for m in result.manual_schedule:
+        if m["work_order_guid"] in old_manual_guids:
+            update_out.append({
+                "work_order_guid": m["work_order_guid"],
+                "work_order_no": m.get("work_order_no"),
+                "start_date": m["week_start"],
+                "end_date": m["week_end"],
+            })
+    result.update_orders = update_out
 
     return result
 
