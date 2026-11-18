@@ -158,6 +158,15 @@ class TestLayer2(unittest.TestCase):
         _occupy_existing(sched, order, [])
         self.assertEqual(sched.calendar("AP").occupied("2026-12-01"), [])
 
+    def test_failed_reason_but_not_status9_still_occupied(self):
+        """非 9 状态带「未能排下」字样仍是真实占用（对齐 Java 6572 的 status==9 限定）。"""
+        sched = Scheduler(*DEFAULT_WINDOW)
+        order = canonicalize(old_order("y", 3600, "2026-12-01 08:00:00",
+                                       "2026-12-01 09:00:00", "8"))
+        order["schedule_reason"] = "超量均摊；未能排下"
+        _occupy_existing(sched, order, [])
+        self.assertEqual(sched.calendar("AP").occupied("2026-12-01"), [(28800, 32400)])
+
     def test_priority_smaller_window_first(self):
         """同等条件下，原始时间窗口越小优先级越高（文档2 §四）。"""
         a = canonicalize(new_order("a", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59"))
@@ -291,8 +300,23 @@ class TestFinalOutput(unittest.TestCase):
         result = rework(new, old, *window)
         out = result.to_dict()
         self.assertEqual(set(out), {"entry", "window", "new", "update",
-                                    "unplaced_new", "force_proposals",
-                                    "rework_chain", "warnings"})
+                                    "still_unplaced_old", "unplaced_new",
+                                    "force_proposals", "rework_chain", "warnings"})
+
+    def test_still_unplaced_old_listed_not_in_groups(self):
+        """此前「未能排下」的旧单：不占位、不重排，显式列出，但不进 new/update 两组。"""
+        window = ("2026-12-01 00:00:00", "2026-12-10 23:59:59")
+        old = [old_order("u", 3600, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9",
+                         schedule_reason="超量均摊；未能排下")]
+        new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
+        result = rework(new, old, *window)
+        self.assertEqual([o["work_order_guid"] for o in result.still_unplaced_old], ["u"])
+        new_guids = {o.get("work_order_guid") for o in result.new_orders_out}
+        update_guids = {o.get("work_order_guid") for o in result.update_orders}
+        self.assertNotIn("u", new_guids)
+        self.assertNotIn("u", update_guids)
+        # 它不占日历，新单也不受影响
+        self.assertEqual(result.entry, "normal")
 
     def test_new_group_carries_scheduled_times(self):
         new, old, window = build_cbd_scenario()

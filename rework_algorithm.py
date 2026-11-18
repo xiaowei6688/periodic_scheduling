@@ -404,10 +404,10 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
 def _occupy_existing(sched: Scheduler, order: dict, warnings: list[str]) -> None:
     """把已有工单的当前起止时间放进日历（L5 共享占用 + 补齐占用）。
 
-    已标记「未能排下」的排队工单，其保留窗口不是真实执行占用，不计入日历
-    （文档2 §六 / Java 6572-6573）。
+    仅「排队中(9) 且已标记未能排下」的工单跳过：其保留窗口不是真实执行占用
+    （文档2 §六 / Java 6572-6573，限定 workOrderStatus == 9）。
     """
-    if "未能排下" in (order.get("schedule_reason") or ""):
+    if order.get("status") == STATUS_QUEUED and "未能排下" in (order.get("schedule_reason") or ""):
         return
     start = parse_dt(order.get("start"))
     end = parse_dt(order.get("end"))
@@ -634,6 +634,7 @@ class ReworkResult:
     # ---- 排班后的最终工单：两组 ----
     new_orders_out: list[dict] = field(default_factory=list)     # 新增（含排定 start/end）
     update_orders: list[dict] = field(default_factory=list)      # 需按 guid 修改的旧工单
+    still_unplaced_old: list[dict] = field(default_factory=list)  # 此前「未能排下」、本次未动的旧单
 
     def to_dict(self) -> dict:
         return {
@@ -643,6 +644,7 @@ class ReworkResult:
             "new": self.new_orders_out,                 # 新增工单（start/end 已排定；未排下为 null）
             "update": self.update_orders,               # 需按 work_order_guid 修改的旧工单
             # ---- 附注 ----
+            "still_unplaced_old": self.still_unplaced_old,  # 此前未排下、本次原样对外对账
             "unplaced_new": self.unplaced,
             "force_proposals": [p.__dict__ for p in self.force_proposals],
             "rework_chain": [s.__dict__ for s in self.rework_steps],
@@ -677,6 +679,15 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     result.fixed_count = len(cat.fixed)
     result.reworkable_count = len(cat.reworkable)
     result.warnings.extend(cat.warnings)
+
+    # ---- 仍欠排的旧单：此前「未能排下」，本次不占位、不重排，原样保持（显式对账）----
+    for order in cat.reworkable:
+        if "未能排下" in (order.get("schedule_reason") or ""):
+            result.still_unplaced_old.append({
+                "work_order_guid": order["guid"],
+                "work_order_no": order.get("work_order_no"),
+                "work_order_status": order["status"],
+            })
 
     # ---- 构建调度器 + 初始日历（固定 + 可重排都先占当前位）
     sched = Scheduler(window_start, window_end, enforce_quota, max_depth)
@@ -829,6 +840,8 @@ def main() -> None:
         print(f"强插建议 {len(result.force_proposals)} 条（不越过受保护占用）")
     if result.manual_schedule:
         print(f"人工错峰 {len(result.manual_schedule)} 张")
+    if result.still_unplaced_old:
+        print(f"仍欠排旧单 {len(result.still_unplaced_old)} 张（之前未能排下，本次未动）")
     if result.warnings:
         print(f"告警 {len(result.warnings)} 条")
     print(f"已写出：{out_path}")
