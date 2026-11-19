@@ -9,8 +9,8 @@
       "airports":          { "ap-a": {airportName, airportSn, airportModel} }
     }
 
-`deviceList[]` 在原报文基础上多带 6 个台账字段（Java 里这些要查 DeviceTmsTowerInfo）：
-    coveringAirports / filter / filterTd / isDeleted / sort / psrEquipCode
+`deviceList[]` 在原报文基础上多带 5 个台账字段（Java 里这些要查 DeviceTmsTowerInfo）：
+    coveringAirports / filter / filterTd / isDeleted / sort
 
 场景（刻意覆盖所有拆分分支）：
     策略 A  输电本体(workNature=1, t-rcxs, 可见光)  isLine=0 整线  22 基
@@ -83,7 +83,6 @@ def build_device(tower: dict, strategy_guid: str, line_name: str, speciality: st
         "filterTd": tower["filter_td"],
         "isDeleted": 0,
         "sort": tower["sort"],
-        "psrEquipCode": tower["psr_equip_code"],
     })
     return device
 
@@ -165,7 +164,6 @@ def build_towers(line_guid: str, count: int, covering_rule, span_rule) -> list[d
             "tower_guid": f"{line_guid[:6]}-t{i:03d}",
             "tower_name": f"苍岭线{i:03d}号塔",
             "line_guid": line_guid,
-            "psr_equip_code": f"PSR-{i:03d}",
             "sort": i,
             "span": span_rule(i),
             **covering_rule(i),
@@ -264,7 +262,7 @@ def main() -> None:
             "span": "",
             "coveringAirports": "ap-a",
             "filter": 0, "filterTd": 0, "isDeleted": 0,
-            "sort": idx, "psrEquipCode": f"PSR-ST-{idx}",
+            "sort": idx,
         })
         devices_d.append(dev)
     base_d = {"job_object": "110kV 苍岭变电站", "line_guid": station_guid,

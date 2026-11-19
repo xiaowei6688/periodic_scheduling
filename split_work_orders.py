@@ -188,7 +188,6 @@ class DeviceAssignment:
     device_name: str
     parent_device_guid: str              # 线路 GUID
     parent_device_name: str              # 线路名称
-    psr_equip_code: str = ""
     span_meters: Optional[float] = None
     candidate_airports: list[str] = field(default_factory=list)   # 完整覆盖列表
     raw: dict = field(default_factory=dict)                       # deviceList 原始元素，原样回传
@@ -364,7 +363,6 @@ def _tower_from_device_item(item: dict, line_guid: str, index: int = 0) -> dict:
         "tower_guid": guid,
         "tower_name": item.get("jobObjectDeviceName") or guid,
         "line_guid": item.get("jobObjectGuid") or line_guid,
-        "psr_equip_code": item.get("psrEquipCode") or "",
         "sort": item.get("sort", index),
         "is_deleted": item.get("isDeleted", 0),
         "covering_airports": item.get("coveringAirports") or "",
@@ -414,7 +412,6 @@ def query_strategy_devices(plan: dict, strategy: dict,
             device_name=tower.get("tower_name") or tower_guid,
             parent_device_guid=line_guid,
             parent_device_name=job_object,
-            psr_equip_code=tower.get("psr_equip_code") or "",
             span_meters=tower.get("span"),
             candidate_airports=coverage,
             raw=tower.get("raw") or {},

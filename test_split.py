@@ -38,7 +38,7 @@ def load_input() -> dict:
 def tower(**overrides) -> dict:
     base = {
         "tower_guid": "t1", "tower_name": "塔1", "line_guid": "L1",
-        "psr_equip_code": "", "sort": 1, "is_deleted": 0,
+        "sort": 1, "is_deleted": 0,
         "covering_airports": "ap-a", "filter": 0, "filter_td": 0, "span": 500,
     }
     base.update(overrides)
@@ -160,7 +160,7 @@ class TestDeviceAcquisition(unittest.TestCase):
                      "jobObjectGuid": "L1", "span": str(t["span"]),
                      "coveringAirports": t["covering_airports"], "filter": t["filter"],
                      "filterTd": t["filter_td"], "isDeleted": t["is_deleted"],
-                     "sort": t["sort"], "psrEquipCode": t["psr_equip_code"]}
+                     "sort": t["sort"]}
                     for t in towers
                 ],
             }],
@@ -315,7 +315,6 @@ class TestInputContract(unittest.TestCase):
         "filterTd",           # filterTd（通道过滤）
         "isDeleted",          # isDeleted
         "sort",               # sort（装箱顺序）
-        "psrEquipCode",       # psrEquipCode
     }
     AIRPORT_FIELDS = {"airportName", "airportSn", "airportModel"}
 

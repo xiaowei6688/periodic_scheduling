@@ -49,7 +49,6 @@ def build_input(name: str) -> dict:
             device["filterTd"] = 0
             device["isDeleted"] = 0
             device["sort"] = index
-            device["psrEquipCode"] = f"PSR-{index:03d}"
             # span 保持客户原值（全是空字符串），用于验证通道估时保底
     payload["airports"] = AIRPORTS
     return payload
