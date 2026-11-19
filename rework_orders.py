@@ -206,9 +206,12 @@ def normalize_existing(raw: dict) -> dict:
         "second_num": raw.get("secondNum"),
         "start_date": start,
         "end_date": end,
-        # 旧工单没有可调整窗口，重排用 start_date / end_date 作为现状基准
-        "pre_start_date": None,
-        "pre_end_date": None,
+        # 可调整窗口：接口补齐 preStartDate/preEndDate 后自动生效；
+        # 未提供时保持 null，重排以 start_date / end_date 作为现状基准
+        "pre_start_date": _parse_dt(raw.get("preStartDate")),
+        "pre_end_date": _parse_dt(raw.get("preEndDate")),
+        # 原计划作业时段：接口提供 timePeriod 时用之，否则重排走默认窗口
+        "time_period": raw.get("timePeriod"),
         "capacity_limit": None,     # 由 merge 阶段按 airportModel 等算
         # 拆单侧没有的字段，供重排参考
         "source": "existing",

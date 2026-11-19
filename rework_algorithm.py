@@ -154,7 +154,7 @@ def canonicalize(order: dict) -> dict:
             "work_nature": order.get("work_nature"),
             "work_nature_sub": order.get("work_nature_sub") or "",
             "one_day": order.get("one_day"),
-            "time_period": None,
+            "time_period": order.get("time_period"),
             "pre_start": order.get("pre_start_date"),
             "pre_end": order.get("pre_end_date"),
             "start": order.get("start_date"),
@@ -668,7 +668,7 @@ def _priority(order: dict) -> tuple:
 
 def rework(new_orders: list[dict], old_orders: list[dict],
            window_start: str, window_end: str,
-           enforce_quota: bool = False, max_depth: int = 20) -> ReworkResult:
+           enforce_quota: bool = True, max_depth: int = 20) -> ReworkResult:
     """入口：按 8 层规则编排一次重排。"""
     result = ReworkResult(window_start=window_start, window_end=window_end)
 
@@ -815,7 +815,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="重排：新工单插入 + 旧工单连续重排 + 强插建议")
     parser.add_argument("--input", default=str(DEFAULT_INPUT))
     parser.add_argument("--out", default=str(DEFAULT_OUTPUT))
-    parser.add_argument("--enforce-quota", action="store_true", help="按 80%% 日配额约束排班")
+    parser.add_argument("--enforce-quota", action=argparse.BooleanOptionalAction, default=True,
+                    help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
     args = parser.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))

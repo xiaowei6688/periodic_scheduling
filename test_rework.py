@@ -103,6 +103,16 @@ class TestNormalize(unittest.TestCase):
         self.assertIsNone(got["start_date"])
         self.assertIsNone(got["end_date"])
 
+    def test_pre_window_kept_when_present(self):
+        got = normalize_existing(raw_order(preStartDate="2026-11-05 00:00:00",
+                                           preEndDate="2026-11-09 23:59:59"))
+        self.assertEqual(got["pre_start_date"], "2026-11-05 00:00:00")
+        self.assertEqual(got["pre_end_date"], "2026-11-09 23:59:59")
+
+    def test_time_period_kept_when_present(self):
+        got = normalize_existing(raw_order(timePeriod="08:30:00-12:30:00"))
+        self.assertEqual(got["time_period"], "08:30:00-12:30:00")
+
     def test_raw_kept(self):
         raw = raw_order()
         self.assertEqual(normalize_existing(raw)["raw"], raw)

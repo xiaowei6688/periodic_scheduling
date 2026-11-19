@@ -207,7 +207,7 @@ class TestLayer456(unittest.TestCase):
 
     def test_chain_rework_c_b_d(self):
         new, old, window = build_cbd_scenario()
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         self.assertEqual(result.entry, "insert_rework")
         moved = [s.moved_guid for s in result.rework_steps]
         self.assertEqual(moved, ["B", "D"])
@@ -220,7 +220,7 @@ class TestLayer456(unittest.TestCase):
     def test_normal_entry_no_chain(self):
         old = [old_order("f", 14400, "2026-12-01 08:00:00", "2026-12-01 12:00:00", "8")]
         new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
-        result = rework(new, old, *DEFAULT_WINDOW)
+        result = rework(new, old, *DEFAULT_WINDOW, enforce_quota=False)
         self.assertEqual(result.entry, "normal")
         self.assertEqual(result.rework_steps, [])
         self.assertEqual(len(result.new_placements), 1)
@@ -235,7 +235,7 @@ class TestLayer456(unittest.TestCase):
                       pre_start="2026-12-01 00:00:00", pre_end="2026-12-01 23:59:59"),
         ]
         new = [new_order("C", 16200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         self.assertEqual(result.entry, "force_insert")
         self.assertEqual(len(result.unplaced), 1)
 
@@ -245,7 +245,7 @@ class TestLayer67(unittest.TestCase):
         window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
         old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
         new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         self.assertEqual(result.entry, "force_insert")
         self.assertEqual(result.force_proposals[0].order_guid, "C")
         self.assertIn("f", result.force_proposals[0].protected_holders)
@@ -253,7 +253,7 @@ class TestLayer67(unittest.TestCase):
 
     def test_change_set_fields(self):
         new, old, window = build_cbd_scenario()
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         d = next(x for x in result.changed_old_orders if x["work_order_guid"] == "D")
         self.assertEqual(set(d), {"work_order_guid", "preempted_by",
                                   "old_start", "old_end", "new_start", "new_end"})
@@ -297,7 +297,7 @@ class TestFinalOutput(unittest.TestCase):
 
     def test_two_group_shape(self):
         new, old, window = build_cbd_scenario()
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         out = result.to_dict()
         self.assertEqual(set(out), {"entry", "window", "new", "update",
                                     "still_unplaced_old", "unplaced_new",
@@ -309,7 +309,7 @@ class TestFinalOutput(unittest.TestCase):
         old = [old_order("u", 3600, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9",
                          schedule_reason="超量均摊；未能排下")]
         new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         self.assertEqual([o["work_order_guid"] for o in result.still_unplaced_old], ["u"])
         new_guids = {o.get("work_order_guid") for o in result.new_orders_out}
         update_guids = {o.get("work_order_guid") for o in result.update_orders}
@@ -320,14 +320,14 @@ class TestFinalOutput(unittest.TestCase):
 
     def test_new_group_carries_scheduled_times(self):
         new, old, window = build_cbd_scenario()
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         c = next(o for o in result.new_orders_out if o["work_order_guid"] == "C")
         self.assertEqual(c["start_date"], "2026-12-02 15:30:00")
         self.assertEqual(c["end_date"], "2026-12-02 17:30:00")
 
     def test_update_group_is_keyed_by_guid(self):
         new, old, window = build_cbd_scenario()
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         guids = sorted(u["work_order_guid"] for u in result.update_orders)
         self.assertEqual(guids, ["B", "D"])
         d = next(u for u in result.update_orders if u["work_order_guid"] == "D")
@@ -338,10 +338,19 @@ class TestFinalOutput(unittest.TestCase):
         window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
         old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
         new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
-        result = rework(new, old, *window)
+        result = rework(new, old, *window, enforce_quota=False)
         c = next(o for o in result.new_orders_out if o["work_order_guid"] == "C")
         self.assertIsNone(c["start_date"])
         self.assertIsNone(c["end_date"])
+        self.assertEqual(len(result.unplaced), 1)
+
+    def test_rework_default_enforces_quota(self):
+        # 5h + 2.5h = 7.5h > 80% 配额 6.4h → 默认配额约束下排不进
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [old_order("f", 18000, "2026-12-01 08:30:00", "2026-12-01 13:30:00", "8")]
+        new = [new_order("C", 9000, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
+        result = rework(new, old, *window)
+        self.assertEqual(result.entry, "force_insert")
         self.assertEqual(len(result.unplaced), 1)
 
 

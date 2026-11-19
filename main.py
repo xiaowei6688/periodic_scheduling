@@ -9,7 +9,7 @@
     python main.py                                    # 默认 mock 输入，在线拉旧单
     python main.py --existing-file out/existing_orders.json
     python main.py --save-existing out/existing_orders.json
-    python main.py --enforce-quota
+    python main.py --no-enforce-quota                 # 关闭 80% 日配额约束
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ DEFAULT_OUT = BASE_DIR / "out" / "result.json"
 
 
 def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
-                 enforce_quota: bool = False,
+                 enforce_quota: bool = True,
                  save_existing: Optional[str] = None) -> dict:
     """拆单 → 拉旧单合并 → 重排，返回完整结果 dict（不落盘）。"""
     pending = collect_rework_set(payload, existing_rows,
@@ -49,7 +49,8 @@ def main() -> None:
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="完整流程结果输出")
     parser.add_argument("--existing-file", help="离线模式：用本地 JSON 代替旧工单接口")
     parser.add_argument("--save-existing", help="把在线拉到的旧工单原样存到该文件")
-    parser.add_argument("--enforce-quota", action="store_true", help="按 80%% 日配额约束排班")
+    parser.add_argument("--enforce-quota", action=argparse.BooleanOptionalAction, default=True,
+                    help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
     args = parser.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))

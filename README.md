@@ -421,7 +421,8 @@ python rework_orders.py --normalize-only --existing-file out/existing_orders.jso
 | `cycleAirportGuid` | `cycle_airport_guid` |
 | `secondNum` | `second_num` |
 | `startDate` / `endDate` | `start_date` / `end_date` |
-| — | `pre_start_date` / `pre_end_date` **保持 `null`**（旧工单没有可调整窗口） |
+| `preStartDate` / `preEndDate` | `pre_start_date` / `pre_end_date`（接口补齐后自动生效；未提供则保持 `null`） |
+| `timePeriod` | `time_period`（接口补齐后旧单用它收敛执行时段；未提供走默认窗口） |
 | `airportModel` / `workNatureSub` / `cycleVoltageLevel` | 保留，用于算 `capacity_limit` |
 | 原始 JSON | `raw` 原样带走 |
 
@@ -432,7 +433,7 @@ python rework_orders.py --normalize-only --existing-file out/existing_orders.jso
 | | 可放窗口 | 现状基准 | 说明 |
 |---|---|---|---|
 | **新工单** | `pre_start_date ~ pre_end_date`（继承计划） | 无（`start/end` 为 null） | 必须排在计划窗口内 |
-| **旧工单** | **无** | `start_date ~ end_date` | 重排基准就是当前位置，不伪造窗口 |
+| **旧工单** | 接口有 `preStartDate/preEndDate` 用之；否则**无** | `start_date ~ end_date` | 重排基准是当前位置，缺窗口时不伪造窗口 |
 
 本次查询的时间段只记在输出的 `summary.window` 里，**不下发到任何工单字段**。
 
@@ -475,7 +476,7 @@ export MAIN_CYCLE_BASE="http://10.10.2.101:8000"
 
 ```bash
 python rework_algorithm.py --input out/rework_set.json --out out/rework_result.json
-python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 80% 日配额约束
+python rework_algorithm.py --input out/rework_set.json --no-enforce-quota   # 关闭 80% 日配额约束（调试用）
 ```
 
 ### 8 层规则落地
@@ -534,8 +535,8 @@ python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 8
 
 1. **占用用 `secondNum`，不用 `endDate-startDate`**（测试环境时间跨度不可信）。
 2. **旧工单没时段时用默认窗口**：可见光 `08:30-17:30`、红外 `05:00-08:00;19:00-22:00`。
-3. **80% 日配额是可选项**（`--enforce-quota`），默认关。文档要求正常排班受配额约束，
-   生产打开即可；关掉便于隔离「链式重排」逻辑本身。
+3. **80% 日配额默认开启**（`--enforce-quota` 默认开，`--no-enforce-quota` 关闭）。
+   文档要求正常排班受配额约束，所以默认就按 80% 约束；调试链式重排逻辑时再关。
 4. **旧工单没有 pre 窗口时**，可移动范围退回本次重排整体窗口（生产数据有 pre 字段时优先用它）。
 5. 重排粒度是**整张工单**：`seconds` 固定，工单要么整体放进某一天，要么不动。
 6. 测试 `test_rework_algorithm.py` 里用文档2 的 C→B→D 例子做了逐层断言。
@@ -571,4 +572,4 @@ python rework_algorithm.py --input out/rework_set.json --enforce-quota   # 按 8
 | 人工「班组产能核验」 | FR08 | 无产能数据，只做周分散 |
 | 「参与占用 ≠ 允许被抢占」的额外允许标志 | FR06 | 未建模，默认状态 9 非变电全部可被抢占 |
 | 排班缓存/事务边界、状态码回写 | 接口 5.3 / 6.2 | 不落库，属平台侧 |
-| `88%/80% 配额` 默认开关 | 接口 4.3 | 做成 `--enforce-quota` 可选项，默认关 |
+| `80% 配额` 开关 | FR04 / 文档 §六 | `--enforce-quota` 默认开，`--no-enforce-quota` 关闭 |
