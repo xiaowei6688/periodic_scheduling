@@ -29,13 +29,16 @@ DEFAULT_OUT = BASE_DIR / "out" / "result.json"
 
 def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
                  enforce_quota: bool = True,
-                 save_existing: Optional[str] = None) -> dict:
+                 save_existing: Optional[str] = None,
+                 skip_weekdays: Optional[list[int]] = None,
+                 holidays: Optional[list[str]] = None) -> dict:
     """拆单 → 拉旧单合并 → 重排，返回完整结果 dict（不落盘）。"""
     pending = collect_rework_set(payload, existing_rows,
                                  save_existing=save_existing)
     result = rework(pending.new_orders, pending.old_orders,
                     pending.window["start"], pending.window["end"],
-                    enforce_quota=enforce_quota)
+                    enforce_quota=enforce_quota,
+                    skip_weekdays=skip_weekdays, holidays=holidays)
     return {
         "summary": pending.summary(),
         "work_order_details": pending.details,
@@ -50,17 +53,22 @@ def main() -> None:
     parser.add_argument("--existing-file", help="离线模式：用本地 JSON 代替旧工单接口")
     parser.add_argument("--save-existing", help="把在线拉到的旧工单原样存到该文件")
     parser.add_argument("--enforce-quota", action=argparse.BooleanOptionalAction, default=True,
-                    help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
+                        help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
+    parser.add_argument("--skip-weekday", default="", help="跳过星期，逗号分隔，1=周一..7=周日")
+    parser.add_argument("--holiday", default="", help="跳过节假日，逗号分隔的 YYYY-MM-DD")
     args = parser.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
     existing_rows = None
     if args.existing_file:
         existing_rows = json.loads(Path(args.existing_file).read_text(encoding="utf-8"))
+    skip_weekdays = [int(x) for x in args.skip_weekday.split(",") if x.strip().isdigit()]
+    holidays = [x.strip() for x in args.holiday.split(",") if x.strip()]
     try:
         out = run_pipeline(payload, existing_rows,
                            enforce_quota=args.enforce_quota,
-                           save_existing=args.save_existing if existing_rows is None else None)
+                           save_existing=args.save_existing if existing_rows is None else None,
+                           skip_weekdays=skip_weekdays, holidays=holidays)
     except ApiError as exc:
         print(f"接口获取失败：{exc}")
         print("可用 --existing-file 离线模式，或检查 MAIN_CYCLE_TOKEN / MAIN_CYCLE_AUTH_HEADER")

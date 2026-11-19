@@ -33,7 +33,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from split_work_orders import (
     INSPECTION_AIRPORT,
@@ -55,6 +55,13 @@ STATUS_FIXED = {"8", "12", "16"}   # 固定占用（16 只有预计时长>0 才�
 # ---- 无作业时段时的默认窗口（文档2 第六节 / 接口说明 4.2）----
 DEFAULT_WINDOW_VISIBLE = "08:30:00-17:30:00"
 DEFAULT_WINDOW_INFRARED = "05:00:00-08:00:00;19:00:00-22:00:00"
+
+# ---- 变电可见光必须 08:30 开始（文档 临时§六）----
+SMS_VISIBLE_START = 8 * 3600 + 30 * 60
+
+# ---- 人工工单平台正式规则（FR08；口径确认前先用平台既有值）----
+MANUAL_ORDER_SOURCE = "5"
+MANUAL_BLOCKED_REASON = "补巡待确认排班"
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
 DAY_FMT = "%Y-%m-%d"
@@ -138,15 +145,40 @@ def effective_time_period(order: dict) -> str:
 # ================================================================ 规整为统一结构
 
 
+def preferred_airport(device_details: Any, fallback: Optional[str]) -> Optional[str]:
+    """旧单可调整机场：台账各设备必须**共同**首位机场才可换，否则沿用原机场（临时§六）。
+
+    明细缺失、无覆盖、或首位机场不一致 → 返回 fallback（兼容沿用原机场，且不视为已确认最优）。
+    """
+    first: Optional[str] = None
+    for detail in device_details or []:
+        if not isinstance(detail, dict):
+            return fallback
+        coverage = detail.get("coveringAirports") or detail.get("covering_airports") or ""
+        airports = [x.strip() for x in str(coverage).split(",") if x.strip()]
+        if not airports:
+            return fallback
+        if first is None:
+            first = airports[0]
+        elif first != airports[0]:
+            return fallback
+    return first or fallback
+
+
 def canonicalize(order: dict) -> dict:
     """把新/旧两种工单结构规整成同一种内部结构。"""
     if order.get("source") == "existing":
-        plan = {}
+        raw = order.get("raw") or {}
+        original_airport = order.get("cycle_airport_guid")
+        airport = preferred_airport(raw.get("workOrderDetails") or raw.get("details"),
+                                    original_airport)
         return {
             "guid": order.get("work_order_guid"),
             "work_order_no": order.get("work_order_no"),
             "plan_guid": order.get("plan_guid"),
-            "airport": order.get("cycle_airport_guid"),
+            "airport": airport,
+            "original_airport": original_airport,
+            "airport_confirmed": airport != original_airport,
             "seconds": int(order.get("second_num") or 0),
             "limit": order.get("capacity_limit"),
             "inspection": str(order.get("inspection_method") or INSPECTION_AIRPORT),
@@ -161,8 +193,10 @@ def canonicalize(order: dict) -> dict:
             "end": order.get("end_date"),
             "source": "existing",
             "status": str(order.get("work_order_status") or ""),
+            "order_source": raw.get("orderSource"),
+            "preemption_allowed": raw.get("allowPreempt"),
             "schedule_reason": order.get("schedule_reason")
-            or (order.get("raw") or {}).get("scheduleReason"),
+            or raw.get("scheduleReason"),
             "raw": order,
         }
     plan = order.get("plan") or {}
@@ -171,6 +205,8 @@ def canonicalize(order: dict) -> dict:
         "work_order_no": order.get("work_order_no"),
         "plan_guid": order.get("plan_guid"),
         "airport": order.get("cycle_airport_guid"),
+        "original_airport": order.get("cycle_airport_guid"),
+        "airport_confirmed": False,
         "seconds": int(order.get("second_num") or 0),
         "limit": order.get("capacity_limit"),
         "inspection": str(order.get("inspection_method") or INSPECTION_AIRPORT),
@@ -185,6 +221,9 @@ def canonicalize(order: dict) -> dict:
         "end": order.get("end_date"),
         "source": "new",
         "status": order.get("work_order_status"),
+        "order_source": order.get("order_source"),
+        "preemption_allowed": None,
+        "schedule_reason": order.get("schedule_reason"),
         "raw": order,
     }
 
@@ -285,8 +324,9 @@ class Calendar:
         return merged
 
     def can_place(self, order: dict, day: str,
-                  enforce_quota: bool) -> Optional[list[tuple[int, int]]]:
-        """order 能否落在 day：占用不重叠（必须）＋ 80% 配额（可选）。"""
+                  enforce_quota: bool,
+                  preferred_start: Optional[int] = None) -> Optional[list[tuple[int, int]]]:
+        """order 能否落在 day：占用不重叠（必须）＋ 80% 配额（可选）＋ 可选固定起点。"""
         windows = parse_time_windows(effective_time_period(order))
         free = self.free_intervals(day, windows)
         seconds = order["seconds"]
@@ -301,26 +341,33 @@ class Calendar:
         for s, e in free:
             if remaining <= 0:
                 break
-            span = e - s
+            begin = max(preferred_start, s) if preferred_start is not None else s
+            span = e - begin
             if span <= 0:
                 continue
             take = min(span, remaining)
-            frags.append((s, s + take))
+            frags.append((begin, begin + take))
             remaining -= take
         if remaining > 0:
             return None
-        if not frags:  # 0 秒工单：锚到第一个窗口起点
-            frags = [(windows[0][0], windows[0][0])] if windows else [(0, 0)]
+        if not frags:  # 0 秒工单：锚到固定起点/第一个窗口起点
+            anchor = preferred_start if preferred_start is not None else (windows[0][0] if windows else 0)
+            frags = [(anchor, anchor)]
+        if preferred_start is not None and frags[0][0] != preferred_start:
+            return None
         return frags
 
 
 class Scheduler:
     def __init__(self, window_start: str, window_end: str,
-                 enforce_quota: bool = False, max_depth: int = 20) -> None:
+                 enforce_quota: bool = False,
+                 skip_weekdays: Optional[Iterable[int]] = None,
+                 holidays: Optional[Iterable[str]] = None) -> None:
         self.window_start = window_start
         self.window_end = window_end
         self.enforce_quota = enforce_quota
-        self.max_depth = max_depth
+        self.skip_weekdays = {int(v) for v in (skip_weekdays or [])}
+        self.holidays = {str(v) for v in (holidays or [])}
         self.calendars: dict[str, Calendar] = {}
         self.orders: dict[str, dict] = {}
         self.reworkable_guids: set[str] = set()
@@ -328,11 +375,24 @@ class Scheduler:
     def calendar(self, airport: str) -> Calendar:
         return self.calendars.setdefault(airport or "", Calendar())
 
+    def _skip(self, day: str) -> bool:
+        """跳过配置的指定星期（ISO 1=周一..7=周日）与节假日（文档 临时§六）。"""
+        if not self.skip_weekdays and not self.holidays:
+            return False
+        d = parse_dt(day + " 00:00:00")
+        if d is None:
+            return False
+        return d.isoweekday() in self.skip_weekdays or day in self.holidays
+
     def find_slot(self, order: dict) -> Optional[tuple[str, list[tuple[int, int]]]]:
         start, end = movable_window(order, self.window_start, self.window_end)
+        infrared = is_airport_infrared(order.get("work_nature_sub") or "")
+        preferred = SMS_VISIBLE_START if (order.get("speciality") or "") == "sms" and not infrared else None
         cal = self.calendar(order["airport"])
         for day in iter_days(start, end):
-            frags = cal.can_place(order, day, self.enforce_quota)
+            if self._skip(day):
+                continue
+            frags = cal.can_place(order, day, self.enforce_quota, preferred_start=preferred)
             if frags is not None:
                 return day, frags
         return None
@@ -385,6 +445,11 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
         status = order["status"]
         speciality = order.get("speciality") or ""
         if status == STATUS_QUEUED and speciality != "sms":
+            if order.get("preemption_allowed") is False:
+                # 参与占用不等于允许被抢占（文档 临时§六）
+                if order["seconds"] > 0:
+                    result.fixed.append(order)
+                continue
             if _window_intersects(order, window_start, window_end):
                 result.reworkable.append(order)
             # 预执行窗口与请求范围不相交：不进入本次任务，也不占本次日历
@@ -446,19 +511,23 @@ def _format_slot(day: str, frags: list[tuple[int, int]]) -> tuple[str, str, int]
     return dt_str(start_dt), dt_str(end_dt), frags[-1][1] - frags[0][0]
 
 
-def _try_place(sched: Scheduler, order: dict, banned: set[str], depth: int,
+def _try_place(sched: Scheduler, order: dict, banned: set[str],
                steps: list[ReworkStep]) -> Optional[bool]:
-    """回溯地把 order 放进去（可能引发一条挪动链）。成功返回 True 并累计 steps。"""
+    """回溯地把 order 放进去（可能引发一条挪动链）。成功返回 True 并累计 steps。
+
+    链长不设上限（文档 FR06），靠 banned 集合防循环；算不完的候选继续找，
+    不会因为深度截断误判成「无法重排」。
+    """
     loc = sched.find_slot(order)
     if loc is not None:
         day, frags = loc
         sched._cal_by_order(order).place(order["guid"], day, frags, order["seconds"])
         return True
-    if depth >= sched.max_depth:
-        return None
 
     start, end = movable_window(order, sched.window_start, sched.window_end)
     for day in iter_days(start, end):
+        if sched._skip(day):
+            continue
         cal = sched.calendar(order["airport"])
         candidates = [g for g in cal.occupants(day)
                       if g in sched.reworkable_guids and g not in banned and g != order["guid"]]
@@ -479,7 +548,7 @@ def _try_place(sched: Scheduler, order: dict, banned: set[str], depth: int,
             day2, frags2 = now
             sched._cal_by_order(order).place(order["guid"], day2, frags2, order["seconds"])
 
-            sub_ok = _try_place(sched, occ, banned | {occ_guid}, depth + 1, steps)
+            sub_ok = _try_place(sched, occ, banned | {occ_guid}, steps)
             if sub_ok is None:
                 occ_cal.restore_snapshot(snapshot)
                 continue
@@ -506,6 +575,48 @@ class ForceProposal:
     work_order_no: str
     reason: str
     protected_holders: list[str] = field(default_factory=list)
+    affected_orders: list[dict] = field(default_factory=list)   # 直接+间接受影响的计划与工单
+    update_proposals: list[str] = field(default_factory=list)    # 拟更新 guid 清单
+
+
+def _force_impact(sched: Scheduler, order: dict) -> tuple[list[dict], list[str]]:
+    """强插影响链（FR07）：直接占用者 + 其可重排时引发的间接占用者。"""
+    affected: dict[str, dict] = {}
+
+    def add(guid: str, relation: str) -> None:
+        if guid in affected or guid == order["guid"]:
+            return
+        holder = sched.orders.get(guid)
+        affected[guid] = {
+            "work_order_guid": guid,
+            "work_order_no": (holder or {}).get("work_order_no"),
+            "plan_guid": (holder or {}).get("plan_guid"),
+            "relation": relation,
+        }
+
+    start, end = movable_window(order, sched.window_start, sched.window_end)
+    direct: list[str] = []
+    for day in iter_days(start, end):
+        direct.extend(sched.calendar(order["airport"]).occupants(day))
+    for guid in direct:
+        add(guid, "direct")
+
+    # 被抢占的直接占用者若可重排，会再引发下一层占用 → 间接影响
+    indirect_windows = []
+    for guid in [g for g, v in affected.items() if v["relation"] == "direct"]:
+        holder = sched.orders.get(guid)
+        if holder is None or guid not in sched.reworkable_guids:
+            continue
+        hs, he = movable_window(holder, sched.window_start, sched.window_end)
+        indirect_windows.append((hs, he, guid))
+    for hs, he, mover in indirect_windows:
+        for day in iter_days(hs, he):
+            for guid in sched.calendar(sched.orders[mover]["airport"]).occupants(day):
+                # 只有可重排的才列入「拟更新」
+                add(guid, "indirect")
+
+    update = [guid for guid in affected if guid in sched.reworkable_guids]
+    return list(affected.values()), update
 
 
 def build_force_proposals(sched: Scheduler, unplaced: list[dict]) -> list[ForceProposal]:
@@ -523,10 +634,13 @@ def build_force_proposals(sched: Scheduler, unplaced: list[dict]) -> list[ForceP
         for day in iter_days(start, end):
             holders.extend(sched.calendar(order["airport"]).occupants(day))
         unique = sorted(set(holders))
+        affected, update = _force_impact(sched, order)
         proposals.append(ForceProposal(
             order_guid=order["guid"], work_order_no=order.get("work_order_no") or "",
             reason="规则内无可行窗口",
-            protected_holders=unique))
+            protected_holders=unique,
+            affected_orders=affected,
+            update_proposals=update))
     return proposals
 
 
@@ -567,12 +681,30 @@ def week_window(day: str, month_days: list[str], window_start: str, window_end: 
     return ws, we
 
 
-def schedule_manual(orders: list[dict], window_start: str, window_end: str) -> list[dict]:
-    """人工工单按周错峰（接口说明 6.1）。
+def _manual_eligible(order: dict) -> bool:
+    """人工入组筛选（FR08 平台正式规则；口径未确认前按平台既有值）。
 
-    没有班组产能数据，只做「同计划分散到不同周 + 全局周负载均衡」，
-    每个工单落到一个自然周，首尾按窗口截断。
+    普通人工：来源5、巡检方式2、状态9、排除「补巡待确认排班」。
     """
+    if order.get("inspection") != INSPECTION_MANUAL:
+        return False
+    if str(order.get("status") or "") != STATUS_QUEUED:
+        return False
+    source = order.get("order_source")
+    if source is not None and str(source) != MANUAL_ORDER_SOURCE:
+        return False
+    if MANUAL_BLOCKED_REASON in (order.get("schedule_reason") or ""):
+        return False
+    return True
+
+
+def schedule_manual(orders: list[dict], window_start: str, window_end: str) -> list[dict]:
+    """人工工单按周错峰（FR08）。
+
+    先按平台正式规则筛入组工单，再「同计划分散到不同周 + 全局周负载均衡」，
+    每个工单落到一个自然周，首尾按窗口截断；人工不占机场资源、不做班组产能核验。
+    """
+    orders = [o for o in orders if _manual_eligible(o)]
     by_plan: dict[str, list[dict]] = {}
     for order in orders:
         if order["inspection"] != INSPECTION_MANUAL:
@@ -668,7 +800,9 @@ def _priority(order: dict) -> tuple:
 
 def rework(new_orders: list[dict], old_orders: list[dict],
            window_start: str, window_end: str,
-           enforce_quota: bool = True, max_depth: int = 20) -> ReworkResult:
+           enforce_quota: bool = True,
+           skip_weekdays: Optional[Iterable[int]] = None,
+           holidays: Optional[Iterable[str]] = None) -> ReworkResult:
     """入口：按 8 层规则编排一次重排。"""
     result = ReworkResult(window_start=window_start, window_end=window_end)
 
@@ -690,7 +824,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
             })
 
     # ---- 构建调度器 + 初始日历（固定 + 可重排都先占当前位）
-    sched = Scheduler(window_start, window_end, enforce_quota, max_depth)
+    sched = Scheduler(window_start, window_end, enforce_quota, skip_weekdays, holidays)
     for order in cat.fixed:
         sched.orders[order["guid"]] = order
         _occupy_existing(sched, order, result.warnings)
@@ -727,7 +861,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
         # ---- L4/L5：链式重排
         still_failed: list[dict] = []
         for order in failed:
-            ok = _try_place(sched, order, set(), 0, steps)
+            ok = _try_place(sched, order, set(), steps)
             if ok is None:
                 still_failed.append(order)
                 continue
@@ -789,12 +923,16 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     update_out: list[dict] = []
     for item in result.changed_old_orders:
         canonical = sched.orders.get(item["work_order_guid"])
-        update_out.append({
+        entry = {
             "work_order_guid": item["work_order_guid"],
             "work_order_no": (canonical or {}).get("work_order_no"),
             "start_date": item["new_start"],
             "end_date": item["new_end"],
-        })
+        }
+        # 台账首位机场优先于原执行机场时，机场变化需同步交付（临时§六）
+        if canonical and canonical.get("airport") != canonical.get("original_airport"):
+            entry["cycle_airport_guid"] = canonical["airport"]
+        update_out.append(entry)
     for m in result.manual_schedule:
         if m["work_order_guid"] in old_manual_guids:
             update_out.append({
@@ -816,7 +954,9 @@ def main() -> None:
     parser.add_argument("--input", default=str(DEFAULT_INPUT))
     parser.add_argument("--out", default=str(DEFAULT_OUTPUT))
     parser.add_argument("--enforce-quota", action=argparse.BooleanOptionalAction, default=True,
-                    help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
+                        help="按 80%% 日配额约束排班（默认开；--no-enforce-quota 关闭）")
+    parser.add_argument("--skip-weekday", default="", help="跳过星期，逗号分隔，1=周一..7=周日")
+    parser.add_argument("--holiday", default="", help="跳过节假日，逗号分隔的 YYYY-MM-DD")
     args = parser.parse_args()
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
@@ -825,10 +965,13 @@ def main() -> None:
     orders = data.get("orders", [])
     new_orders = [o for o in orders if o.get("source") != "existing"]
     old_orders = [o for o in orders if o.get("source") == "existing"]
+    skip_weekdays = [int(x) for x in args.skip_weekday.split(",") if x.strip().isdigit()]
+    holidays = [x.strip() for x in args.holiday.split(",") if x.strip()]
 
     result = rework(new_orders, old_orders,
                     window.get("start", ""), window.get("end", ""),
-                    enforce_quota=args.enforce_quota)
+                    enforce_quota=args.enforce_quota,
+                    skip_weekdays=skip_weekdays, holidays=holidays)
     payload = result.to_dict()
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -425,9 +425,9 @@ def query_strategy_devices(plan: dict, strategy: dict,
 
 def filter_plan_devices(plan: dict, assignments: list[DeviceAssignment],
                         result: PlanSplitResult) -> list[DeviceAssignment]:
-    """通道无覆盖杆塔直接剔除；有原计划时间时只补未巡设备。
+    """通道无覆盖杆塔直接剔除；有原计划时间时只补未巡设备（临时§六 巡检对象与防重）。
 
-    对应 Java 6784-6814 queryOrderPlanDeviceAssignments。
+    防重所需图片数据不在当前报文里，规则留钩子按 deviceList 现状处理。
     """
     # ① 输配电通道(workNature=2)仅处理有机场覆盖的杆塔；无覆盖不转人工
     if (plan.get("workNature") or "") == "2" and (plan.get("speciality") or "") in {"tms", "dms"}:
@@ -439,9 +439,8 @@ def filter_plan_devices(plan: dict, assignments: list[DeviceAssignment],
                 kept.append(device)
         assignments = kept
 
-    # ② 计划带原计划时间时，按设备最新关联工单的去重图片数与阈值比对，只保留未巡设备。
-    #    实际实现查 WorkOrderInfoMapper.listUninspectedDeviceGuidsByPlan；
-    #    本脚本没有工单库，保留钩子并在注释中说明，不做任何过滤（等于「全部未巡」）。
+    # ② 计划带原计划时间时，按设备最新关联工单的去重图片数与阈值筛选未巡设备。
+    #    图片数不在当前报文里，留钩子；数据到位后再补 filter_uninspected(plan, assignments)。
     has_original_time = bool(plan.get("originalPlanStartDate")) or bool(plan.get("originalPlanEndDate"))
     if has_original_time and assignments and (plan.get("speciality") or "") in {"tms", "dms"}:
         # TODO(对接工单库): assignments = filter_uninspected(plan, assignments)

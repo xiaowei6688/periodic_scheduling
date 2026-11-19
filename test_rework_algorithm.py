@@ -22,6 +22,7 @@ from rework_algorithm import (
     iter_days,
     largest_remainder_split,
     parse_time_windows,
+    preferred_airport,
     rework,
     schedule_manual,
 )
@@ -352,6 +353,77 @@ class TestFinalOutput(unittest.TestCase):
         result = rework(new, old, *window)
         self.assertEqual(result.entry, "force_insert")
         self.assertEqual(len(result.unplaced), 1)
+
+
+class TestDocRuleGaps(unittest.TestCase):
+    """上一轮补齐的文档缺口：跳过日期、变电08:30、允许抢占标志、强插影响链、人工筛选、旧单机场。"""
+
+    def test_skip_weekday_and_holiday(self):
+        sched = Scheduler(*DEFAULT_WINDOW, skip_weekdays=[7], holidays=["2026-12-06"])
+        self.assertTrue(sched._skip("2026-12-06"))   # 2026-12-06 周日
+        self.assertTrue(sched._skip("2026-12-13"))   # 周日
+        self.assertFalse(sched._skip("2026-12-07"))  # 周一
+
+    def test_substation_visible_starts_at_0830(self):
+        raw = {
+            "work_order_guid": "s1", "work_order_no": "ZQ-S1", "plan_guid": "p1",
+            "cycle_airport_guid": "AP", "second_num": 3600, "capacity_limit": None,
+            "inspection_method": "1", "time_period": "08:00:00-12:00:00",
+            "pre_start_date": "2026-12-01 00:00:00", "pre_end_date": "2026-12-01 23:59:59",
+            "start_date": None, "end_date": None, "source": "new",
+            "plan": {"speciality": "sms", "workNature": "1", "workNatureSub": "s-rcxs", "oneDay": 1},
+        }
+        result = rework([raw], [], *DEFAULT_WINDOW, enforce_quota=True)
+        self.assertEqual(result.entry, "normal")
+        self.assertEqual(result.new_placements[0]["start"], "2026-12-01 08:30:00")
+
+    def test_preemption_allowed_false_not_reworkable(self):
+        order = canonicalize(old_order("b", 3600, "2026-12-01 08:00:00",
+                                        "2026-12-01 09:00:00", "9"))
+        order["preemption_allowed"] = False
+        cat = categorize_old([order], *DEFAULT_WINDOW)
+        self.assertEqual(cat.reworkable, [])
+        self.assertIn(order, cat.fixed)
+
+    def test_force_proposal_lists_affected_orders(self):
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
+        new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
+        result = rework(new, old, *window, enforce_quota=False)
+        proposal = result.force_proposals[0]
+        self.assertEqual(proposal.order_guid, "C")
+        self.assertIn("f", proposal.protected_holders)
+        affected = {a["work_order_guid"]: a for a in proposal.affected_orders}
+        self.assertIn("f", affected)
+        self.assertEqual(affected["f"]["relation"], "direct")
+
+    def test_manual_eligible_filters(self):
+        def manual(guid, status="9", source="5", reason=None):
+            raw = {
+                "work_order_guid": guid, "work_order_no": f"RX-{guid}", "plan_guid": "p-m",
+                "cycle_airport_guid": None, "second_num": None, "capacity_limit": None,
+                "inspection_method": "2", "professional_category": "tms", "work_nature": "1",
+                "work_nature_sub": "t-rcxs", "one_day": 1, "work_order_status": status,
+                "order_source": source, "schedule_reason": reason,
+                "pre_start_date": "2026-12-01 00:00:00", "pre_end_date": "2027-01-31 23:59:59",
+                "start_date": None, "end_date": None, "source": "new",
+            }
+            return canonicalize(raw)
+
+        ok = manual("m1")
+        status8 = manual("m2", status="8")
+        blocked = manual("m3", reason="补巡待确认排班")
+        got = schedule_manual([ok, status8, blocked], *DEFAULT_WINDOW)
+        self.assertEqual([m["work_order_guid"] for m in got], ["m1"])
+
+    def test_preferred_airport_common_first(self):
+        details = [{"coveringAirports": "ap-x,ap-y"}, {"coveringAirports": "ap-x"}]
+        self.assertEqual(preferred_airport(details, "ap-old"), "ap-x")
+        # 无共同首位机场 → 不能改选次优，沿用原机场
+        self.assertEqual(preferred_airport(
+            [{"coveringAirports": "ap-x"}, {"coveringAirports": "ap-z"}], "ap-old"), "ap-old")
+        # 明细缺失 → 沿用原机场
+        self.assertEqual(preferred_airport(None, "ap-old"), "ap-old")
 
 
 if __name__ == "__main__":
