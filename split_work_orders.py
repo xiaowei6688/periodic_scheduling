@@ -7,7 +7,7 @@
 
 输入：
     mock_data/split_input.json    自包含报文（planSetInfo + planStrategyList{deviceList, planList}
-                                  + airports + capacityTable）
+                                  + airports；承载力走内置 airport_capacity()）
 
 输出：
     out/work_orders.json   工单主表 + 明细（不含 start_date/end_date，留给排班阶段）
@@ -249,32 +249,72 @@ def _is_deleted(row: dict) -> bool:
     return str(value).strip().lower() in {"1", "true"}
 
 
-class Ledgers:
-    """拆单除了设备清单之外还需要的两块数据：机场台账 + 承载力配置。
+# ---------------------------------------------------------------- 承载力（内置，对齐单机场承载力.xlsx / AirportPlanScheduler.capacity()）
 
-    这两块在 Java 里要查 EquipAirportInfo 表和 AirportPlanScheduler 的配置，
-    这里随报文传进来。设备本身不在这里——设备就在 deviceList 上。
+SMS_VOLTAGES = ("35", "110", "220", "500")
+TMS_BODY_THIRD = (30, 20, 15, 10)      # jc_03 三代 本体（35/110/220/500）
+TMS_BODY_SECOND = (25, 15, 10, 7)      # jc_08 二代 本体
+TMS_TENSION_THIRD = (12, 12, 10, 6)    # jc_03 红外耐张
+TMS_TENSION_SECOND = (2, 2, 2, 1)      # jc_08 红外耐张
+
+
+def airport_capacity(model: Optional[str], speciality: str, infrared: bool,
+                     item: str, voltage: str) -> Optional[float]:
+    """理论日承载力：内置业务表，模型 jc_03=三代 / jc_08=二代 / jc_09=三代×2。
+
+    其余机场型号返回 None（未配置），调用方走整组保底；不再需要随报文传 capacityTable。
+    """
+    model = (model or "").strip()
+    if model == "jc_09":
+        third = airport_capacity("jc_03", speciality, infrared, item, voltage)
+        return None if third is None else third * 2
+    if model not in ("jc_03", "jc_08"):
+        return None
+    third = model == "jc_03"
+    speciality = speciality or ""
+    item = item or ""
+    if speciality == "sms" and voltage in SMS_VOLTAGES:
+        return (600 if third else 200) if infrared else (1000 if third else 800)
+    if speciality == "dms" and voltage == "10":
+        if infrared:
+            return 30 if (item == "设备杆" and third) else None
+        if item == "本体":
+            return 100 if third else 60
+        if item == "通道":
+            return 20 if third else 18
+        return None
+    if speciality != "tms" or voltage not in SMS_VOLTAGES:
+        return None
+    voltage_index = SMS_VOLTAGES.index(voltage)
+    if not infrared:
+        if item == "通道":
+            return 15 if third else 12
+        if item == "本体":
+            return (TMS_BODY_THIRD if third else TMS_BODY_SECOND)[voltage_index]
+        return None
+    if item == "耐张":
+        return (TMS_TENSION_THIRD if third else TMS_TENSION_SECOND)[voltage_index]
+    if item in ("复合绝缘子", "负荷绝缘子") and voltage_index >= 2:
+        return 9 if third else 2
+    if item == "电缆终端" and voltage == "110":
+        return 6 if third else 1
+    return None
+
+
+class Ledgers:
+    """拆单还需要的两块外部数据：机场台账 + 变电航点。
+
+    机场台账随报文传（取 airportModel）；承载力不再传，直接查内置 airport_capacity()。
+    设备本身也不在这里——设备就在 deviceList 上。
     """
 
-    def __init__(self, airports: dict, capacity_table: list[dict],
-                 device_routes: Optional[list[dict]] = None):
+    def __init__(self, airports: dict, device_routes: Optional[list[dict]] = None):
         self.airports = airports or {}
         self.device_routes = device_routes or []
-        self.capacity_index: dict[tuple, float] = {}
-        for row in capacity_table or []:
-            key = (
-                row["airportModel"],
-                row["speciality"],
-                bool(row["infrared"]),
-                row["item"],
-                str(row["voltage"]),
-            )
-            self.capacity_index[key] = float(row["capacity"])
 
     @classmethod
     def from_payload(cls, payload: dict) -> "Ledgers":
         return cls(payload.get("airports") or {},
-                   payload.get("capacityTable") or [],
                    payload.get("deviceRoutes") or [])
 
     def route_points(self, device_guid: str, track_type: str) -> int:
@@ -302,7 +342,7 @@ class Ledgers:
 
     def capacity(self, model: Optional[str], speciality: str, infrared: bool,
                  item: str, voltage: str) -> Optional[float]:
-        return self.capacity_index.get((model, speciality, infrared, item, voltage))
+        return airport_capacity(model, speciality, infrared, item, voltage)
 
 
 # ---------------------------------------------------------------- 设备获取与分流

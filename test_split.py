@@ -164,7 +164,7 @@ class TestDeviceAcquisition(unittest.TestCase):
                     for t in towers
                 ],
             }],
-            "airports": {}, "capacityTable": [],
+            "airports": {},
         }
 
     def _plan(self) -> dict:
@@ -231,13 +231,13 @@ class TestMockDataset(unittest.TestCase):
         self.assertEqual(verify(self.results), [])
 
     def test_order_count(self):
-        self.assertEqual(len(self.orders), 33)
+        self.assertEqual(len(self.orders), 16)
         self.assertEqual(len(self.details), 78)
 
     def test_airport_and_manual_split(self):
         airport = [o for o in self.orders if o["inspection_method"] == "1"]
         manual = [o for o in self.orders if o["inspection_method"] == "2"]
-        self.assertEqual(len(airport), 30)
+        self.assertEqual(len(airport), 13)
         self.assertEqual(len(manual), 3)
 
     def test_every_airport_order_within_day_capacity(self):
@@ -255,8 +255,8 @@ class TestMockDataset(unittest.TestCase):
                 self.assertEqual(order["parent_device_num"], 1,
                                  f"{order['work_order_no']} 多设备工单超容 {limit}")
                 overflow_single += 1
-        # 上午段 limit=14400 < 1040m 那基的 14976s；上午段计划 2 条各溢出 1 张
-        self.assertEqual(overflow_single, 2)
+        # 内置承载力（jc_03 通道 15km/日）下无人超单日容量
+        self.assertEqual(overflow_single, 0)
 
     def test_channel_without_coverage_is_removed_not_manual(self):
         channel = [r for r in self.results if r.plan["workNature"] == "2"]
@@ -306,7 +306,7 @@ class TestMockDataset(unittest.TestCase):
 class TestInputContract(unittest.TestCase):
     """输入报文契约：拆单必需的字段一个不能少，不许多余。
 
-    这些字段原本在 Java 里要查三张表，现在必须随报文一起来。
+    台账侧只随报文传机场台账（airports）；承载力不再传，由内置 airport_capacity() 查表。
     """
 
     DEVICE_EXTRA_FIELDS = {
@@ -318,14 +318,13 @@ class TestInputContract(unittest.TestCase):
         "psrEquipCode",       # psrEquipCode
     }
     AIRPORT_FIELDS = {"airportName", "airportSn", "airportModel"}
-    CAPACITY_FIELDS = {"airportModel", "speciality", "infrared", "item", "voltage", "capacity"}
 
     def setUp(self):
         self.payload = load_input()
 
     def test_top_level_blocks(self):
         self.assertEqual(set(self.payload),
-                         {"planSetInfo", "planStrategyList", "airports", "capacityTable"})
+                         {"planSetInfo", "planStrategyList", "airports"})
 
     def test_device_list_carries_ledger_fields(self):
         for strategy in self.payload["planStrategyList"]:
@@ -337,16 +336,20 @@ class TestInputContract(unittest.TestCase):
         for guid, airport in self.payload["airports"].items():
             self.assertEqual(set(airport), self.AIRPORT_FIELDS, f"{guid} 字段不符")
 
-    def test_capacity_table(self):
-        rows = self.payload["capacityTable"]
-        self.assertTrue(rows)
-        for row in rows:
-            self.assertEqual(set(row), self.CAPACITY_FIELDS)
+    def test_capacity_is_builtin(self):
+        from split_work_orders import airport_capacity
+        # 三代 jc_03 / 二代 jc_08，对齐单机场承载力.xlsx
+        self.assertEqual(airport_capacity("jc_03", "tms", False, "本体", "35"), 30)
+        self.assertEqual(airport_capacity("jc_03", "tms", False, "本体", "110"), 20)
+        self.assertEqual(airport_capacity("jc_08", "tms", False, "本体", "110"), 15)
+        self.assertEqual(airport_capacity("jc_03", "tms", False, "通道", "500"), 15)
+        self.assertEqual(airport_capacity("jc_09", "tms", False, "本体", "110"), 40)   # 三代×2
+        self.assertIsNone(airport_capacity("X-UNKNOWN", "tms", False, "本体", "110"))
 
     def test_ledgers_built_without_external_files(self):
         ledgers = Ledgers.from_payload(self.payload)
         self.assertTrue(ledgers.airports)
-        self.assertTrue(ledgers.capacity_index)
+        self.assertFalse(hasattr(ledgers, "capacity_index"))
 
     def test_no_tower_store_in_ledgers(self):
         """设备数据只存在 deviceList 上，Ledgers 不再保存任何设备。"""
@@ -462,22 +465,22 @@ class TestThreeDisciplines(unittest.TestCase):
         sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"]
         self.assertEqual(len(sms), 1, "变电整单不拆")
         order = sms[0]
-        # 72 航点 / 100 点每天 * 28800 = 20736s，只算一次记在首台
-        self.assertEqual(order["second_num"], 20736)
+        # 72 航点 / jc_03 变电 1000 航点每天 * 28800 = ceil(2073.6)=2074s，只算一次记在首台
+        self.assertEqual(order["second_num"], 2074)
         self.assertEqual(order["parent_device_num"], 2)
         self.assertEqual(order["plan"]["jobObjectGuid"], "st-0001")
 
     def test_substation_uses_route_points_not_device_count(self):
         sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"][0]
-        # 若按设备数(2台)算会得到 57600s，按航点算才是 20736s
-        self.assertNotEqual(sms["second_num"], 57600)
+        # 若按设备数(2台)算会得到 58s，按航点算才是 2074s
+        self.assertNotEqual(sms["second_num"], 58)
 
     def test_distribution_split_by_capacity(self):
         dms = [o for o in self.orders
                if o["plan"]["speciality"] == "dms" and o["inspection_method"] == "1"]
-        # 5 基机场，每基 4800s，limit 23040 -> 4 + 1
+        # 5 基机场，每基 288s，合计 1440s ≤ limit 23040 -> 一张
         self.assertEqual(sum(o["parent_device_num"] for o in dms), 5)
-        self.assertEqual(len(dms), 2)
+        self.assertEqual(len(dms), 1)
         for order in dms:
             self.assertLessEqual(order["second_num"], order["capacity_limit"])
 
@@ -490,7 +493,7 @@ class TestThreeDisciplines(unittest.TestCase):
     def test_substation_route_filtering_by_track_type(self):
         """同站不同航迹的 999 航点不能算进来。"""
         sms = [o for o in self.orders if o["plan"]["speciality"] == "sms"][0]
-        self.assertEqual(sms["second_num"], 20736)   # 只有 trackType=11 的 40+32
+        self.assertEqual(sms["second_num"], 2074)   # 只有 trackType=11 的 40+32
 
     def test_substation_falls_back_without_route_data(self):
         payload = json.loads((DATA_DIR / "split_input_multi.json").read_text(encoding="utf-8"))

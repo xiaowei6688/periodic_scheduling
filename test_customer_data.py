@@ -2,7 +2,7 @@
 
 客户那 5 份报文是落库时从创建计划接口抓的，`deviceList` 里**不含**覆盖机场、过滤位
 （这些在 Java 里要查设备台账）。本测试模拟"上游已经把这些字段补齐"后的输入：
-直接在 deviceList 上注入台账字段，再加 airports / capacityTable 两块，然后拆单。
+直接在 deviceList 上注入台账字段，再加 airports 一块，然后拆单。承载力走内置表。
 
 验证：不崩溃、守恒通过、工单数稳定（黄金值）。
 
@@ -35,17 +35,11 @@ GOLDEN = {
     "zidingyi": {"plans": 14, "orders": 56, "details": 476},
 }
 
-AIRPORTS = {"ap-a": {"airportName": "机场A", "airportSn": "SN1", "airportModel": "M350H"}}
-CAPACITY_TABLE = [
-    {"airportModel": "M350H", "speciality": "tms", "infrared": False,
-     "item": "本体", "voltage": "110", "capacity": 20.0},
-    {"airportModel": "M350H", "speciality": "tms", "infrared": False,
-     "item": "通道", "voltage": "110", "capacity": 2.0},
-]
+AIRPORTS = {"ap-a": {"airportName": "机场A", "airportSn": "SN1", "airportModel": "jc_03"}}
 
 
 def build_input(name: str) -> dict:
-    """取客户原始报文，把台账字段注入 deviceList，补上 airports / capacityTable。"""
+    """取客户原始报文，把台账字段注入 deviceList，补上 airports 机场台账。"""
     payload = json.loads((CUSTOMER_DIR / f"{name}.json").read_text(encoding="utf-8"))
     for strategy in payload["planStrategyList"]:
         for index, device in enumerate(strategy["deviceList"]):
@@ -58,7 +52,6 @@ def build_input(name: str) -> dict:
             device["psrEquipCode"] = f"PSR-{index:03d}"
             # span 保持客户原值（全是空字符串），用于验证通道估时保底
     payload["airports"] = AIRPORTS
-    payload["capacityTable"] = CAPACITY_TABLE
     return payload
 
 
@@ -122,11 +115,9 @@ class TestOrdering(unittest.TestCase):
 class TestSubstationEstimation(unittest.TestCase):
     """变电：整站航点求和算一次，只记首台设备，整单不拆。"""
 
-    def _ledgers(self, routes, capacity=5.0):
+    def _ledgers(self, routes):
         return Ledgers(
-            airports={"ap-a": {"airportName": "A", "airportModel": "M350H"}},
-            capacity_table=[{"airportModel": "M350H", "speciality": "sms", "infrared": False,
-                             "item": "融合/例行", "voltage": "500", "capacity": capacity}],
+            airports={"ap-a": {"airportName": "A", "airportModel": "jc_03"}},
             device_routes=routes,
         )
 
@@ -149,8 +140,8 @@ class TestSubstationEstimation(unittest.TestCase):
         ]
         task = self._task(plan)
         estimate_task(task, plan, {}, self._ledgers(routes))
-        # 只累加 trackType=11 且有效未删除的 30+30=60 航点；capacity=5 -> 60/5*28800
-        self.assertEqual(task.seconds, [345600, 0])
+        # 只累加 trackType=11 且有效未删除的 30+30=60 航点；jc_03 变电 1000 航点/日 -> 60/1000*28800
+        self.assertEqual(task.seconds, [1728, 0])
 
     def test_missing_track_type_falls_back(self):
         plan = {"speciality": "sms", "workNature": "1", "workNatureSub": "未知子类",

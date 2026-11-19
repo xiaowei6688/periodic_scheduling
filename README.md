@@ -5,8 +5,8 @@
 只做一件事：**把一条计划拆成若干张工单，每张工单保证「存在一个执行日能做完」。**
 不选日期、不查占用、不做超量均摊，所以工单的 `start_date` / `end_date` 一律为 `null`。
 
-**不访问任何数据库。** Java 里要查三张表才能拿到的数据（设备台账 / 机场台账 / 承载力配置），
-全部随输入报文一起传进来。
+**不访问任何数据库。** 设备清单就在 `deviceList` 上，机场台账随报文传（`airports`）；
+承载力不再传，由内置 `airport_capacity()` 按机场型号查表（单机场承载力.xlsx）。
 
 ```bash
 python build_mock.py                             # 生成 mock_data/split_input.json
@@ -25,7 +25,7 @@ orders, details, results = split_all(payload)   # payload 是 dict
 problems = verify(results)                       # 空列表 = 守恒校验通过
 ```
 
-报文结构（在你的计划报文基础上只加了两块，其余是 `deviceList` 上补字段）：
+报文结构（在你的计划报文基础上只加了一个 airports 块，其余是 `deviceList` 上补字段）：
 
 ```jsonc
 {
@@ -53,12 +53,8 @@ problems = verify(results)                       # 空列表 = 守恒校验通�
     }
   ],
   "airports": {                                      // ★ 新增：机场台账
-    "ap-a": { "airportName": "苍岭机场A", "airportSn": "SN-M350H-001", "airportModel": "M350H" }
-  },
-  "capacityTable": [                                 // ★ 新增：承载力配置
-    { "airportModel": "M350H", "speciality": "tms", "infrared": false,
-      "item": "本体", "voltage": "110", "capacity": 4.0 }
-  ]
+    "ap-a": { "airportName": "苍岭机场A", "airportSn": "SN-JC03-001", "airportModel": "jc_03" }
+  }
 }
 ```
 
@@ -72,8 +68,7 @@ problems = verify(results)                       # 空列表 = 守恒校验通�
 | `deviceList[]` | `isDeleted` | `isDeleted` | 非 0 的设备跳过 |
 | `deviceList[]` | `sort` | `sort` | 装箱顺序，缺省用数组下标 |
 | `deviceList[]` | `psrEquipCode` | `psrEquipCode` | 写进工单明细 |
-| 顶层 | `airports` | 查 `EquipAirportInfo` | 机场名 / SN / **型号**（型号是承载力匹配键） |
-| 顶层 | `capacityTable` | `AirportPlanScheduler.capacity()` 的数据源 | 承载力数值 |
+| 顶层 | `airports` | 查 `EquipAirportInfo` | 机场名 / SN / **型号**（型号是内置承载力匹配键） |
 
 `span` 你原来就有，通道类型会用它；**为空会触发整组保底**。
 
@@ -127,14 +122,16 @@ if speciality == "tms" and work_nature == "2":
 return filter == 0
 ```
 
-### 2.2 承载力匹配键（Java 6467-6471）
+### 2.2 承载力（内置，对齐单机场承载力.xlsx / AirportPlanScheduler.capacity）
+
+机场型号只认三种：`jc_03`（三代）、`jc_08`（二代）、`jc_09`（三代×2）；其余型号查不到 → 整组保底。
 
 | 维度 | 取值 |
 |---|---|
-| 机场型号 | `airports[机场GUID].airportModel` |
+| 机场型号 | `airports[机场GUID].airportModel`（`jc_03` / `jc_08` / `jc_09`） |
 | 专业 | `plan.speciality`（`tms` / `dms` / `sms`） |
 | 红外 | `workNatureSub ∈ {s-hwxs, t-hwxs, d-hwxs}` 的布尔值 |
-| 作业类型 | `本体` / `通道` / `耐张` / `复合绝缘子` / `电缆终端` / `设备杆` / `融合例行` / `红外专项` |
+| 作业类型 | `本体` / `通道` / `耐张` / `复合绝缘子` / `电缆终端` / `设备杆`；变电只看专业+电压 |
 | 电压 | 去掉 `AC` 前缀与 `kV` 后缀的纯数字（`AC110kV` → `110`） |
 
 `pictureType` **不参与**承载力匹配，只写进工单的 `day_or_night`。
@@ -297,8 +294,8 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 
 | 杆塔 | 覆盖 | filter | 分流 | 预期 |
 |---|---|---|---|---|
-| #001-012 | ap-a | 0 | 机场 A | M350H 4/天 → 7200s/台 → 每张 3 台，4 张 |
-| #013-017 | ap-b | 0 | 机场 B | M30T 8/天 → 3600s/台 → 18000s，1 张 |
+| #001-012 | ap-a | 0 | 机场 A | jc_03 本体 110 → 1440s/台，12 台一单 |
+| #013-017 | ap-b | 0 | 机场 B | jc_08 本体 110 → 1920s/台，5 台一单 |
 | #018-019 | ap-c | 0 | 机场 C | 型号未配置 → 整组保底，1 张 |
 | #020 | ap-a | **1** | 人工 | 过滤不通过 |
 | #021-022 | 无 | 0 | 人工 | 无覆盖 |
@@ -308,23 +305,22 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 
 | 杆塔 | 覆盖 | 分流 | 预期 |
 |---|---|---|---|
-| #001-003 | ap-a | 机场 A | 按档距 880/920/1040 米折算，每张 1 台 |
+| #001-003 | ap-a | 机场 A | jc_03 通道 110 → 15km/日，880/920/1040 米折算，一单装 3 台 |
 | #004-005 | 无 | **剔除** | 通道无覆盖不转人工 |
 
-结果：**7 个计划 → 33 张工单（30 机场 + 3 人工），78 条明细**，守恒通过。
+结果：**7 个计划 → 16 张工单（13 机场 + 3 人工），78 条明细**，守恒通过。
 
 > 上午段 `08:30-12:30` 只有 14400s < 配额 23040s，所以上午计划的 `limit = 14400`；
 > 下午段 `12:45-18:30` 是 20700s，`limit = 20700`。**`limit` 随时段变化**。
-> 1040 米那基在上午段预计 14976s > 14400s，单台超容，独占一张单。
 
 ---
 
-## 7. 待替换的两处数据
+## 7. 待确认的数据
 
 | 项 | 位置 | 说明 |
 |---|---|---|
-| 承载力数值 | `split_input.json` 的 `capacityTable` | mock 里是占位值，真实值需要平台配置导出 |
 | 配额比例 | `QUOTA_RATIO = 0.80` | 文档 §4.2/§4.3 口径，平台可配就改成配置项 |
+| 承载力 | `airport_capacity()` | 已内置 `jc_03/jc_08/jc_09` 三型号表，无需再传 `capacityTable`，平台无需导出 |
 
 ---
 
@@ -369,12 +365,18 @@ plan_limit({"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"})  # 23
 
 航点为 0 时**显式报错走整组保底**（Java 不校验，会产出 0 秒工单）。
 
-### 承载力配置要覆盖三个专业
+### 承载力内置表覆盖三个专业
 
-```jsonc
-{"airportModel":"M350H","speciality":"dms","infrared":false,"item":"本体","voltage":"10","capacity":6.0},
-{"airportModel":"M350H","speciality":"sms","infrared":false,"item":"融合/例行","voltage":"500","capacity":100.0}
-```
+承载力由 `airport_capacity()` 内置，无需随报文传。支持的机场型号：`jc_03`（三代）、
+`jc_08`（二代）、`jc_09`（=三代×2）；其余型号返回空 → 走整组保底。
+
+| 专业 | 电压 | jc_03（三代） | jc_08（二代） |
+|---|---|---|---|
+| 输电本体 | 35/110/220/500 | 30/20/15/10 基 | 25/15/10/7 基 |
+| 输电通道 | 任意 | 15 km | 12 km |
+| 变电 | 35/110/220/500 | 1000 航点（红外 600） | 800 航点（红外 200） |
+| 配电本体 | 10 | 100 基 | 60 基 |
+| 配电通道 | 10 | 20 km | 18 km |
 
 注意电压是纯数字：配电 `AC10kV`→`10`，变电 `AC500kV`→`500`。
 

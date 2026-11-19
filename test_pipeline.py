@@ -35,8 +35,8 @@ class TestPipeline(unittest.TestCase):
     def test_full_flow_offline(self):
         out = run_pipeline(load_payload(), [raw_order("old-1")])
         self.assertEqual(set(out), {"summary", "work_order_details", "rework"})
-        # split_input.json 的黄金值：33 张工单 / 78 条明细
-        self.assertEqual(out["summary"]["new_orders"], 33)
+        # split_input.json 的黄金值：16 张工单 / 78 条明细
+        self.assertEqual(out["summary"]["new_orders"], 16)
         self.assertEqual(len(out["work_order_details"]), 78)
         rw = out["rework"]
         self.assertIn(rw["entry"], {"normal", "insert_rework", "force_insert"})

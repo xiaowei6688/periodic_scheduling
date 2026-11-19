@@ -1,12 +1,12 @@
 """生成拆单测试用的**自包含**输入报文。
 
-只产出一个文件 `mock_data/split_input.json`，拆单所需的一切都在里面，不需要查任何库：
+只产出 `mock_data/split_input.json`（基础场景）和 `split_input_multi.json`（三类巡检），
+拆单所需的设备都在 `deviceList` 上，机场台账随报文来，承载力由内置表查（不再传 capacityTable）：
 
     {
       "planSetInfo":       { ... },                      // 计划集，客户原有结构
       "planStrategyList":  [ { ..., deviceList: [...], planList: [...] } ],
-      "airports":          { "ap-a": {airportName, airportSn, airportModel} },
-      "capacityTable":     [ {airportModel, speciality, infrared, item, voltage, capacity} ]
+      "airports":          { "ap-a": {airportName, airportSn, airportModel} }
     }
 
 `deviceList[]` 在原报文基础上多带 6 个台账字段（Java 里这些要查 DeviceTmsTowerInfo）：
@@ -14,16 +14,16 @@
 
 场景（刻意覆盖所有拆分分支）：
     策略 A  输电本体(workNature=1, t-rcxs, 可见光)  isLine=0 整线  22 基
-        #001-012  ap-a (M350H, 4/天)   -> 每台 7200s -> 每张 3 台，共 4 张
-        #013-017  ap-b (M30T,  8/天)   -> 每台 3600s -> 5 台 18000s，1 张
-        #018-019  ap-c (型号未配置)    -> 整组保底 1 小时，1 张
-        #020      有覆盖但 filter=1    -> 过滤不通过，转人工
-        #021-022  无覆盖               -> 转人工
-        人工 3 基                      -> 合 1 张
+        #001-012  ap-a (jc_03 三代, 20基/天) -> 每台 1440s -> 12 台一张
+        #013-017  ap-b (jc_08 二代, 15基/天) -> 每台 1920s -> 5 台一张
+        #018-019  ap-c (型号未配置)          -> 整组保底 1 小时，1 张
+        #020      有覆盖但 filter=1          -> 过滤不通过，转人工
+        #021-022  无覆盖                     -> 转人工
+        人工 3 基                            -> 合 1 张
     策略 B  输电通道(workNature=2, t-ttdxs)  isLine=0  5 基
         策略时段两段，展开成 4 条单段子计划（2 次 × 2 段）
-        #001-003  ap-a (通道 2 公里/天) -> 按档距折算，每张 1 台
-        #004-005  无覆盖                -> 通道直接剔除，不转人工
+        #001-003  ap-a (jc_03 通道 15 公里/天) -> 按档距折算，3 台一张
+        #004-005  无覆盖                      -> 通道直接剔除，不转人工
 
 用法：
     python build_mock.py
@@ -51,23 +51,12 @@ LINE_C_GUID = "a1b2c3d5000041118222333444555fff"       # 10kV 苍岭馈线
 
 # 机场台账（Java 里查 EquipAirportInfo）。AP-C 故意用未配置型号，验证保底分支
 AIRPORTS = {
-    "ap-a": {"airportName": "苍岭机场A", "airportSn": "SN-M350H-001", "airportModel": "M350H"},
-    "ap-b": {"airportName": "苍岭机场B", "airportSn": "SN-M30T-002", "airportModel": "M30T"},
+    "ap-a": {"airportName": "苍岭机场A", "airportSn": "SN-JC03-001", "airportModel": "jc_03"},
+    "ap-b": {"airportName": "苍岭机场B", "airportSn": "SN-JC08-002", "airportModel": "jc_08"},
     "ap-c": {"airportName": "苍岭机场C", "airportSn": "SN-X-003", "airportModel": "X-UNKNOWN"},
 }
 
-# 承载力配置（Java 里 AirportPlanScheduler.capacity 的数据源）
-CAPACITY_TABLE = [
-    {"airportModel": "M350H", "speciality": "tms", "infrared": False, "item": "本体", "voltage": "110", "capacity": 4.0},
-    {"airportModel": "M30T", "speciality": "tms", "infrared": False, "item": "本体", "voltage": "110", "capacity": 8.0},
-    {"airportModel": "M350H", "speciality": "tms", "infrared": False, "item": "通道", "voltage": "110", "capacity": 2.0},
-    {"airportModel": "M30T", "speciality": "tms", "infrared": False, "item": "通道", "voltage": "110", "capacity": 3.0},
-    # 配电：本体按设备数，电压 AC10kV -> "10"
-    {"airportModel": "M350H", "speciality": "dms", "infrared": False, "item": "本体", "voltage": "10", "capacity": 6.0},
-    {"airportModel": "M30T", "speciality": "dms", "infrared": False, "item": "本体", "voltage": "10", "capacity": 4.0},
-    # 变电：整站按有效航点数，电压 AC500kV -> "500"
-    {"airportModel": "M350H", "speciality": "sms", "infrared": False, "item": "融合/例行", "voltage": "500", "capacity": 100.0},
-]
+# 承载力不再随报文传：拆单侧内置 airport_capacity()（单机场承载力.xlsx / Java AirportPlanScheduler.capacity）
 
 
 def _common() -> dict:
@@ -364,9 +353,7 @@ def main() -> None:
     payload = {
         "planSetInfo": plan_set,
         "planStrategyList": [strategy_a, strategy_b],
-        # 下面两块是原本要查库才能拿到的数据，随报文一起来
         "airports": AIRPORTS,
-        "capacityTable": CAPACITY_TABLE,
     }
     out = MOCK_DIR / "split_input.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -379,7 +366,6 @@ def main() -> None:
         "planSetInfo": {**plan_set, "planSetName": "2026年11月三类巡检计划"},
         "planStrategyList": [strategy_a, strategy_b, strategy_c, strategy_d],
         "airports": AIRPORTS,
-        "capacityTable": CAPACITY_TABLE,
         "deviceRoutes": device_routes,
     }
     out_multi = MOCK_DIR / "split_input_multi.json"
@@ -387,7 +373,7 @@ def main() -> None:
     print(f"已生成 {out_multi} ({out_multi.stat().st_size} bytes)")
     print(f"  策略C 配电本体：{len(devices_c)} 基杆塔 / {len(plans_c)} 条子计划")
     print(f"  策略D 变电整站：{len(devices_d)} 台设备 / {len(plans_d)} 条子计划 / 航点 {len(device_routes)} 条")
-    print(f"  机场 {len(AIRPORTS)} 个 / 承载力 {len(CAPACITY_TABLE)} 条")
+    print(f"  机场 {len(AIRPORTS)} 个 / 承载力内置 airport_capacity()")
 
 
 if __name__ == "__main__":

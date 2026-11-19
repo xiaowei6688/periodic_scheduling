@@ -1279,76 +1279,18 @@
   "airports": {
     "ap-a": {
       "airportName": "苍岭机场A",
-      "airportSn": "SN-M350H-001",
-      "airportModel": "M350H"
+      "airportSn": "SN-JC03-001",
+      "airportModel": "jc_03"
     },
     "ap-b": {
       "airportName": "苍岭机场B",
-      "airportSn": "SN-M30T-002",
-      "airportModel": "M30T"
+      "airportSn": "SN-JC08-002",
+      "airportModel": "jc_08"
     },
     "ap-c": {
       "airportName": "苍岭机场C",
       "airportSn": "SN-X-003",
       "airportModel": "X-UNKNOWN"
     }
-  },
-  "capacityTable": [
-    {
-      "airportModel": "M350H",
-      "speciality": "tms",
-      "infrared": false,
-      "item": "本体",
-      "voltage": "110",
-      "capacity": 4.0
-    },
-    {
-      "airportModel": "M30T",
-      "speciality": "tms",
-      "infrared": false,
-      "item": "本体",
-      "voltage": "110",
-      "capacity": 8.0
-    },
-    {
-      "airportModel": "M350H",
-      "speciality": "tms",
-      "infrared": false,
-      "item": "通道",
-      "voltage": "110",
-      "capacity": 2.0
-    },
-    {
-      "airportModel": "M30T",
-      "speciality": "tms",
-      "infrared": false,
-      "item": "通道",
-      "voltage": "110",
-      "capacity": 3.0
-    },
-    {
-      "airportModel": "M350H",
-      "speciality": "dms",
-      "infrared": false,
-      "item": "本体",
-      "voltage": "10",
-      "capacity": 6.0
-    },
-    {
-      "airportModel": "M30T",
-      "speciality": "dms",
-      "infrared": false,
-      "item": "本体",
-      "voltage": "10",
-      "capacity": 4.0
-    },
-    {
-      "airportModel": "M350H",
-      "speciality": "sms",
-      "infrared": false,
-      "item": "融合/例行",
-      "voltage": "500",
-      "capacity": 100.0
-    }
-  ]
+  }
 }
