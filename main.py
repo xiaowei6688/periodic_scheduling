@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
 from rework_algorithm import rework
 from rework_orders import ApiError, collect_rework_set
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
@@ -86,6 +89,9 @@ def _build_output(payload: dict, pending, result) -> dict:
             if "cycle_airport_guid" in update:
                 raw["cycleAirportGuid"] = update["cycle_airport_guid"]
         old_orders_out.append(raw)
+    logger.info("回组输出 计划包=%s 计划=%s 新工单=%s 旧工单=%s 入口=%s",
+                len(strategies_out), total_plans, total_orders,
+                len(old_orders_out), result.entry)
 
     return {
         "planSetInfo": plan_set_out,
@@ -103,6 +109,9 @@ def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
                  skip_weekdays: Optional[list[int]] = None,
                  holidays: Optional[list[str]] = None) -> dict:
     """拆单 → 拉旧单合并 → 重排，按输入报文格式回组结果（不落盘）。"""
+    logger.info("整流程开始 配额约束=%s 跳过星期=%s 节假日=%s 离线旧单=%s",
+                enforce_quota, skip_weekdays, holidays,
+                "是" if existing_rows is not None else "否")
     pending = collect_rework_set(payload, existing_rows,
                                  save_existing=save_existing)
     result = rework(pending.new_orders, pending.old_orders,
@@ -113,6 +122,8 @@ def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     parser = argparse.ArgumentParser(description="拆分工单 → 重排新旧工单（完整流程）")
     parser.add_argument("--input", default=str(DEFAULT_INPUT), help="拆单输入报文")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="完整流程结果输出")

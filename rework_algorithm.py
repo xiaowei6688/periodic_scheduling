@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -42,6 +43,8 @@ from split_work_orders import (
     is_airport_infrared,
     local_time,
 )
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_INPUT = BASE_DIR / "out" / "rework_set.json"
@@ -798,6 +801,9 @@ def rework(new_orders: list[dict], old_orders: list[dict],
            holidays: Optional[Iterable[str]] = None) -> ReworkResult:
     """入口：按 8 层规则编排一次重排。"""
     result = ReworkResult(window_start=window_start, window_end=window_end)
+    logger.info("重排开始 窗口=%s ~ %s 配额约束=%s 跳过星期=%s 节假日=%s",
+                window_start, window_end, enforce_quota,
+                list(skip_weekdays or []), list(holidays or []))
 
     # ---- L2：旧单分类
     old_airport = [canonicalize(o) for o in old_orders if canonicalize(o)["inspection"] == INSPECTION_AIRPORT]
@@ -806,6 +812,8 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     result.fixed_count = len(cat.fixed)
     result.reworkable_count = len(cat.reworkable)
     result.warnings.extend(cat.warnings)
+    logger.info("旧单分类 机场=%s 固定=%s 可重排=%s 人工=%s",
+                len(old_airport), len(cat.fixed), len(cat.reworkable), len(manual_old))
 
     # ---- 仍欠排的旧单：此前「未能排下」，本次不占位、不重排，原样保持（显式对账）----
     for order in cat.reworkable:
@@ -839,6 +847,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
         loc = sched.find_slot(order)
         if loc is None:
             failed.append(order)
+            logger.info("L1 试排失败 工单=%s 机场=%s", order.get("work_order_no"), order["airport"])
             continue
         day, frags = loc
         sched._cal_by_order(order).place(order["guid"], day, frags, order["seconds"])
@@ -847,6 +856,8 @@ def rework(new_orders: list[dict], old_orders: list[dict],
             "work_order_guid": order["guid"], "work_order_no": order.get("work_order_no"),
             "airport": order["airport"], "start": s_, "end": e_, "forced": False,
         })
+        logger.info("L1 排入 工单=%s 机场=%s %s ~ %s",
+                    order.get("work_order_no"), order["airport"], s_, e_)
 
     if not failed:
         result.entry = "normal"
@@ -857,6 +868,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
             ok = _try_place(sched, order, set(), steps)
             if ok is None:
                 still_failed.append(order)
+                logger.info("L4 链式后仍未排下 工单=%s", order.get("work_order_no"))
                 continue
             slot = sched.slot_of(order["guid"])
             s_, e_, _ = _format_slot(slot["date"], slot["frags"])
@@ -864,7 +876,9 @@ def rework(new_orders: list[dict], old_orders: list[dict],
                 "work_order_guid": order["guid"], "work_order_no": order.get("work_order_no"),
                 "airport": order["airport"], "start": s_, "end": e_, "forced": False,
             })
+            logger.info("L4 链式排入 工单=%s %s ~ %s", order.get("work_order_no"), s_, e_)
         result.rework_steps = list(reversed(steps))  # 因果序：谁先抢占谁
+        logger.info("L4 重排链 %s 步", len(result.rework_steps))
         if not still_failed:
             result.entry = "insert_rework"
         else:
@@ -891,6 +905,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     manual_orders = new_manual + manual_old
     if manual_orders:
         result.manual_schedule = schedule_manual(manual_orders, window_start, window_end)
+        logger.info("L8 人工错峰 %s 张", len(result.manual_schedule))
 
     # ---- 输出：最终工单两组 ----
     # 新增组：所有新工单（机场 + 人工），带上排定的起止时间；未排下的保持 null
@@ -935,7 +950,9 @@ def rework(new_orders: list[dict], old_orders: list[dict],
                 "end_date": m["week_end"],
             })
     result.update_orders = update_out
-
+    logger.info("重排结束 入口=%s 新单排入=%s 挪动旧单=%s 未排新单=%s 强插建议=%s",
+                result.entry, len(result.new_placements), len(result.changed_old_orders),
+                len(result.unplaced), len(result.force_proposals))
     return result
 
 
@@ -943,6 +960,8 @@ def rework(new_orders: list[dict], old_orders: list[dict],
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     parser = argparse.ArgumentParser(description="重排：新工单插入 + 旧工单连续重排 + 强插建议")
     parser.add_argument("--input", default=str(DEFAULT_INPUT))
     parser.add_argument("--out", default=str(DEFAULT_OUTPUT))

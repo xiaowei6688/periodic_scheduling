@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import urllib.error
 import urllib.request
@@ -47,6 +48,8 @@ from split_work_orders import (
     split_all,
     verify,
 )
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
@@ -101,6 +104,7 @@ def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 10
         payload = _post_json(url, body)
         rows, has_next = _extract_rows(payload)
         collected.extend(rows)
+        logger.info("拉取旧工单 第%s页 rows=%s 累计=%s", page, len(rows), len(collected))
         if not has_next or not rows:
             break
     return collected
@@ -307,6 +311,8 @@ def collect_rework_set(payload: dict, existing_rows: Optional[list[dict]] = None
     if problems:
         raise ValueError("拆单守恒校验失败：" + "；".join(problems))
     window_start, window_end = order_date_span(orders)
+    logger.info("拆单完成 工单=%s 明细=%s 窗口=%s ~ %s",
+                len(orders), len(details), window_start, window_end)
     if not window_start or not window_end:
         raise ValueError("新工单缺少 pre 窗口，无法确定拉取范围")
     if existing_rows is None:
@@ -318,14 +324,21 @@ def collect_rework_set(payload: dict, existing_rows: Optional[list[dict]] = None
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(existing_rows, ensure_ascii=False, indent=2),
                         encoding="utf-8")
-    return build_rework_set(orders, existing_rows, window_start, window_end,
-                            details=details)
+    rework_set = build_rework_set(orders, existing_rows, window_start, window_end,
+                                  details=details)
+    stats = rework_set.filter_stats
+    logger.info("旧工单 原始=%s 保留=%s（作废=%s 延期=%s 其他=%s）",
+                stats.total, stats.kept, stats.cancelled, stats.delayed,
+                len(stats.dropped) - stats.cancelled - stats.delayed)
+    return rework_set
 
 
 # ---------------------------------------------------------------- 主流程
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     parser = argparse.ArgumentParser(description="拉取旧工单并与新拆工单合并（不重排、不落库）")
     parser.add_argument("--input", default=str(DEFAULT_INPUT), help="拆单输入报文")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="合并结果输出")

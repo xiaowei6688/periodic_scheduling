@@ -21,12 +21,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA_DIR = BASE_DIR / "mock_data"
@@ -499,6 +502,8 @@ def _mark_hour_fallback(task: AirportTask, reason: str) -> None:
     if task.seconds:
         task.seconds[0] = FALLBACK_SECONDS
     task.fallback_reason = f"{reason}，保底1小时"
+    logger.warning("保底估时 计划=%s 机场=%s 原因=%s",
+                   task.plan.get("planNo"), task.airport_guid, task.fallback_reason)
 
 
 def get_work_seconds(plan: dict, devices: list[DeviceAssignment], capacity: float,
@@ -704,6 +709,9 @@ def prepare_plan(plan: dict, strategy: dict, ledgers: Ledgers,
 
     assignments = query_strategy_devices(plan, strategy, result)
     assignments = filter_plan_devices(plan, assignments, result)
+    logger.info("拆单 计划=%s 设备=%s 通道剔除=%s 人工=%s",
+                plan.get("planNo"), result.total_devices,
+                len(result.removed_channel), len(result.manual_devices))
     if not assignments:
         return result
 
@@ -723,6 +731,10 @@ def prepare_plan(plan: dict, strategy: dict, ledgers: Ledgers,
         estimate_task(task, plan, strategy, ledgers)
         task.slices = pack_slices(task, plan)
         result.tasks.append(task)
+        logger.info("机场桶 计划=%s 机场=%s 设备=%s 单数=%s 秒数=%s%s",
+                    plan.get("planNo"), airport_guid, len(task.devices),
+                    len(task.slices), task.seconds[:3],
+                    f" 保底:{task.fallback_reason}" if task.fallback_reason else "")
 
     # ③ 人工：同计划合一张（Java 6211 在 plan 循环内立即生成）
     if manual:
@@ -786,6 +798,7 @@ def emit_orders(results: list[PlanSplitResult], ledgers: Ledgers
             result.orders.append(order)
             result.details.extend(order_details)
 
+    logger.info("出单完成 工单=%s 明细=%s", len(orders), len(details))
     return orders, details
 
 
@@ -797,6 +810,7 @@ def split_all(payload: dict, ledgers: Optional[Ledgers] = None
     """拆单入口。只吃一个自包含报文，台账/机场/承载力都在里面。"""
     ledgers = ledgers or Ledgers.from_payload(payload)
     strategies = {s["planStrategyGuid"]: s for s in payload.get("planStrategyList") or []}
+    logger.info("拆单开始 计划包=%s 机场=%s", len(strategies), len(ledgers.airports))
     results: list[PlanSplitResult] = []
     for plan in iterate_plans(payload):
         strategy = strategies.get(plan.get("planStrategyGuid") or "")
@@ -868,6 +882,8 @@ def summarize(results: list[PlanSplitResult]) -> str:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     parser = argparse.ArgumentParser(description="周期计划 -> 工单拆分")
     parser.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     parser.add_argument("--out", default=str(DEFAULT_OUT))
