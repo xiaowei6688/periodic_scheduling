@@ -25,6 +25,7 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 | `rework_algorithm.py` | 重排算法：插入 / 链式重排 / 强插建议 / 人工错峰 |
 | `build_mock.py` | 生成 `mock_data/split_input.json`、`split_input_multi.json` |
 | `输入参数说明.md` | 输入报文字段含义与 JSON 结构 |
+| `输出结构说明.md` | 输出 `out/result.json` 的 JSON 结构说明 |
 | `test_*.py` | 拆单、重排、管线回归测试 |
 
 ---

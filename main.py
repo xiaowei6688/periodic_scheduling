@@ -30,6 +30,11 @@ BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
 DEFAULT_OUT = BASE_DIR / "out" / "result.json"
 
+# ---- 旧工单展示用的中文枚举（示例字段） ----
+PROFESSION_ZH = {"tms": "输电", "dms": "配电", "sms": "变电"}
+WORK_NATURE_ZH = {"1": "本体", "101": "本体", "2": "通道"}
+INFRARED_SUBS = {"s-hwxs", "t-hwxs", "d-hwxs"}
+
 
 def _attach_details(new_orders: list[dict], details: list[dict]) -> list[dict]:
     """把拆分明细挂到对应新工单上，保持工单自包含。"""
@@ -42,6 +47,69 @@ def _attach_details(new_orders: list[dict], details: list[dict]) -> list[dict]:
         item["details"] = detail_map.get(item.get("work_order_guid"), [])
         out.append(item)
     return out
+
+
+def _impact_chains(payload: dict, pending, result) -> dict:
+    """从 rework_steps 还原「谁影响谁」的影响链，与新/旧工单信息回组。"""
+    new_by_guid = {o.get("work_order_guid"): o for o in result.new_orders_out}
+    old_by_guid = {}
+    for order in pending.old_orders:
+        raw = dict(order.get("raw") or order)
+        guid = order.get("work_order_guid") or raw.get("workOrderGuid")
+        old_by_guid[guid] = raw
+
+    chains: list[dict] = []
+    current = None
+    for step in result.rework_steps:
+        if step.preempted_by in new_by_guid:
+            current = {"root": new_by_guid[step.preempted_by], "nodes": []}
+            chains.append(current)
+        if current is None:
+            continue
+        raw = old_by_guid.get(step.moved_guid) or {}
+        current["nodes"].append({
+            "guid": step.moved_guid,
+            "no": raw.get("workOrderNo") or step.moved_guid,
+        })
+
+    plan_set_name = (payload.get("planSetInfo") or {}).get("planSetName")
+    list_out = []
+    for chain in chains:
+        root = chain["root"]
+        plan = root.get("plan") or {}
+        first = chain["nodes"][0] if chain["nodes"] else {"guid": None}
+        raw = old_by_guid.get(first["guid"]) or {}
+        node_nos = [n["no"] for n in chain["nodes"]][:3]
+        list_out.append({
+            "planSetName": plan_set_name,
+            "jobObject": plan.get("jobObject"),
+            "frequency": plan.get("inspectionFrequency"),
+            "workObjName": raw.get("equipName") or plan.get("jobObject"),
+            "planGuid": plan.get("planGuid"),
+            "planNo": plan.get("planNo"),
+            "workOrderGuid": raw.get("workOrderGuid") or first["guid"],
+            "workOrderNo": raw.get("workOrderNo"),
+            "cycleAirportGuid": raw.get("cycleAirportGuid"),
+            "secondNum": raw.get("secondNum"),
+            "workOrderStatus": raw.get("workOrderStatus"),
+            "startDate": raw.get("startDate"),
+            "endDate": raw.get("endDate"),
+            "firstWorkOrderNo": node_nos[0] if len(node_nos) >= 1 else None,
+            "secondWorkOrderNo": node_nos[1] if len(node_nos) >= 2 else None,
+            "thirdWorkOrderNo": node_nos[2] if len(node_nos) >= 3 else None,
+            "result": "连续重排成功" if result.entry == "insert_rework" else "连续重排失败",
+        })
+
+    direct = len(chains)
+    indirect = max(0, sum(len(c["nodes"]) for c in chains) - direct)
+    return {
+        "stats": {
+            "chainCount": len(chains),
+            "directCount": direct,
+            "indirectCount": indirect,
+        },
+        "list": list_out,
+    }
 
 
 def _build_output(payload: dict, pending, result) -> dict:
@@ -78,17 +146,96 @@ def _build_output(payload: dict, pending, result) -> dict:
     plan_set_out["planCount"] = total_plans
     plan_set_out["workOrderCount"] = total_orders
 
+    # ---- 旧工单回组：换成带计划信息、中文枚举、影响轮次与结果的展示结构 ----
+    plan_by_guid = {}
+    for strategy in payload.get("planStrategyList") or []:
+        for plan in strategy.get("planList") or []:
+            plan_by_guid[plan.get("planGuid")] = plan
+    plan_set_name = (payload.get("planSetInfo") or {}).get("planSetName")
+
+    new_guids = {o.get("work_order_guid") for o in result.new_orders_out}
+    moved_meta: dict[str, dict] = {}
+    round_no = 1
+    for step in result.rework_steps:
+        if step.preempted_by in new_guids:
+            round_no = 1
+        moved_meta[step.moved_guid] = {
+            "round": round_no,
+            "descType": "直接影响" if round_no == 1 else "间接影响",
+            "old_start": step.old_start,
+            "old_end": step.old_end,
+            "new_start": step.new_start,
+            "new_end": step.new_end,
+        }
+        round_no += 1
+    continues = {step.preempted_by for step in result.rework_steps}
+    still_unplaced = {u["work_order_guid"] for u in result.still_unplaced_old}
+
     update_map = {u["work_order_guid"]: u for u in result.update_orders}
     old_orders_out = []
     for order in pending.old_orders:
         raw = dict(order.get("raw") or order)
-        update = update_map.get(raw.get("workOrderGuid") or order.get("work_order_guid"))
+        guid = order.get("work_order_guid") or raw.get("workOrderGuid")
+        plan = plan_by_guid.get(raw.get("planGuid")) or {}
+        update = update_map.get(guid)
+        meta = moved_meta.get(guid)
+        work_nature_sub = raw.get("workNatureSub") or ""
+
+        old_start = (meta or {}).get("old_start") or raw.get("startDate")
+        old_end = (meta or {}).get("old_end") or raw.get("endDate")
         if update:
-            raw["startDate"] = update.get("start_date", raw.get("startDate"))
-            raw["endDate"] = update.get("end_date", raw.get("endDate"))
-            if "cycle_airport_guid" in update:
-                raw["cycleAirportGuid"] = update["cycle_airport_guid"]
-        old_orders_out.append(raw)
+            start_date = update.get("start_date", raw.get("startDate"))
+            end_date = update.get("end_date", raw.get("endDate"))
+        elif meta:
+            start_date = meta.get("new_start")
+            end_date = meta.get("new_end")
+        else:
+            start_date = raw.get("startDate")
+            end_date = raw.get("endDate")
+
+        if meta:
+            desc = f"第 {meta['round']} 轮"
+            desc_type = meta["descType"]
+            result_txt = "已排妥"
+            result_desc = "继续影响下一张旧单" if guid in continues else "已排妥"
+        elif guid in still_unplaced:
+            desc = ""
+            desc_type = ""
+            result_txt = result_desc = "未排妥"
+        else:
+            desc = ""
+            desc_type = ""
+            result_txt = result_desc = "未调整"
+
+        cycle_airport = (update.get("cycle_airport_guid") if update else raw.get("cycleAirportGuid"))
+
+        old_orders_out.append({
+            "planSetName": plan_set_name,
+            "jobObject": plan.get("jobObject"),
+            "frequency": plan.get("inspectionFrequency"),
+            "workObjName": raw.get("equipName") or plan.get("jobObject"),
+            "planGuid": raw.get("planGuid"),
+            "planNo": plan.get("planNo"),
+            "workOrderGuid": guid,
+            "workOrderNo": raw.get("workOrderNo"),
+            "professionalCategoryZh": PROFESSION_ZH.get(raw.get("professionalCategory"),
+                                                         raw.get("professionalCategory") or ""),
+            "workNatureZh": WORK_NATURE_ZH.get(str(raw.get("workNature")),
+                                               raw.get("workNature") or ""),
+            "dayOrNightZh": "红外" if work_nature_sub in INFRARED_SUBS else "可见光",
+            "desc": desc,
+            "descType": desc_type,
+            "equipName": raw.get("equipName"),
+            "cycleAirportGuid": cycle_airport,
+            "secondNum": raw.get("secondNum"),
+            "workOrderStatus": raw.get("workOrderStatus"),
+            "oldStartDate": old_start,
+            "oldEndDate": old_end,
+            "startDate": start_date,
+            "endDate": end_date,
+            "result": result_txt,
+            "resultDesc": result_desc,
+        })
     logger.info("回组输出 计划包=%s 计划=%s 新工单=%s 旧工单=%s 入口=%s",
                 len(strategies_out), total_plans, total_orders,
                 len(old_orders_out), result.entry)
@@ -97,6 +244,7 @@ def _build_output(payload: dict, pending, result) -> dict:
         "planSetInfo": plan_set_out,
         "planStrategyList": strategies_out,
         "oldWorkOrders": old_orders_out,
+        "impactChains": _impact_chains(payload, pending, result),
         "entry": result.entry,
         "forceProposals": [p.__dict__ for p in result.force_proposals],
         "warnings": result.warnings,

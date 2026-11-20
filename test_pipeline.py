@@ -34,8 +34,8 @@ def raw_order(guid: str) -> dict:
 class TestPipeline(unittest.TestCase):
     def test_full_flow_offline(self):
         out = run_pipeline(load_payload(), [raw_order("old-1")])
-        self.assertEqual(set(out), {"planSetInfo", "planStrategyList",
-                                    "oldWorkOrders", "entry", "forceProposals", "warnings"})
+        self.assertEqual(set(out), {"planSetInfo", "planStrategyList", "oldWorkOrders",
+                                    "impactChains", "entry", "forceProposals", "warnings"})
         # 计划包 2（planStrategyList 条数）/ 计划 7（planList 总数）/ 新工单 16 / 明细 78；旧工单 1 条平级放
         ps = out["planSetInfo"]
         self.assertEqual((ps["planPackageCount"], ps["planCount"], ps["workOrderCount"]), (2, 7, 16))
