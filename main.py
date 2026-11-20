@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -27,23 +28,88 @@ DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
 DEFAULT_OUT = BASE_DIR / "out" / "result.json"
 
 
+def _attach_details(new_orders: list[dict], details: list[dict]) -> list[dict]:
+    """把拆分明细挂到对应新工单上，保持工单自包含。"""
+    detail_map: dict[str, list[dict]] = defaultdict(list)
+    for detail in details:
+        detail_map[detail["work_order_guid"]].append(detail)
+    out = []
+    for order in new_orders:
+        item = dict(order)
+        item["details"] = detail_map.get(item.get("work_order_guid"), [])
+        out.append(item)
+    return out
+
+
+def _build_output(payload: dict, pending, result) -> dict:
+    """按输入报文格式回组：工单按计划嵌套到 planList，旧工单平级另放。"""
+    new_orders = _attach_details(result.new_orders_out, pending.details)
+    plan_orders: dict[int, list[dict]] = defaultdict(list)
+    for order in new_orders:
+        plan_orders[id(order.get("plan"))].append(order)
+
+    strategies_out = []
+    total_plans = 0
+    total_orders = 0
+    for strategy in payload.get("planStrategyList") or []:
+        plan_list_out = []
+        strategy_orders = 0
+        for plan in strategy.get("planList") or []:
+            orders = plan_orders.get(id(plan), [])
+            plan_out = dict(plan)
+            plan_out["workOrders"] = orders
+            plan_out["workOrderCount"] = len(orders)
+            plan_list_out.append(plan_out)
+            strategy_orders += len(orders)
+            total_plans += 1
+        strategy_out = dict(strategy)
+        strategy_out["planList"] = plan_list_out
+        strategy_out["planCount"] = len(plan_list_out)
+        strategy_out["workOrderCount"] = strategy_orders
+        strategies_out.append(strategy_out)
+        total_orders += strategy_orders
+
+    plan_set_out = dict(payload.get("planSetInfo") or {})
+    # planStrategyList 是计划包列表，数量=len；planList 是计划列表，数量=汇总的 len
+    plan_set_out["planPackageCount"] = len(strategies_out)
+    plan_set_out["planCount"] = total_plans
+    plan_set_out["workOrderCount"] = total_orders
+
+    update_map = {u["work_order_guid"]: u for u in result.update_orders}
+    old_orders_out = []
+    for order in pending.old_orders:
+        raw = dict(order.get("raw") or order)
+        update = update_map.get(raw.get("workOrderGuid") or order.get("work_order_guid"))
+        if update:
+            raw["startDate"] = update.get("start_date", raw.get("startDate"))
+            raw["endDate"] = update.get("end_date", raw.get("endDate"))
+            if "cycle_airport_guid" in update:
+                raw["cycleAirportGuid"] = update["cycle_airport_guid"]
+        old_orders_out.append(raw)
+
+    return {
+        "planSetInfo": plan_set_out,
+        "planStrategyList": strategies_out,
+        "oldWorkOrders": old_orders_out,
+        "entry": result.entry,
+        "forceProposals": [p.__dict__ for p in result.force_proposals],
+        "warnings": result.warnings,
+    }
+
+
 def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
                  enforce_quota: bool = True,
                  save_existing: Optional[str] = None,
                  skip_weekdays: Optional[list[int]] = None,
                  holidays: Optional[list[str]] = None) -> dict:
-    """拆单 → 拉旧单合并 → 重排，返回完整结果 dict（不落盘）。"""
+    """拆单 → 拉旧单合并 → 重排，按输入报文格式回组结果（不落盘）。"""
     pending = collect_rework_set(payload, existing_rows,
                                  save_existing=save_existing)
     result = rework(pending.new_orders, pending.old_orders,
                     pending.window["start"], pending.window["end"],
                     enforce_quota=enforce_quota,
                     skip_weekdays=skip_weekdays, holidays=holidays)
-    return {
-        "summary": pending.summary(),
-        "work_order_details": pending.details,
-        "rework": result.to_dict(),
-    }
+    return _build_output(payload, pending, result)
 
 
 def main() -> None:
@@ -77,13 +143,15 @@ def main() -> None:
         print(str(exc))
         raise SystemExit(1)
 
-    rw = out["rework"]
-    print(f"入口：{rw['entry']}")
-    summary = out["summary"]
-    print(f"待排集合：{summary['total']} 张（新 {summary['new_orders']} + 旧 {summary['old_orders']}）"
-          f" / 明细 {len(out['work_order_details'])} 条")
-    print(f"重排：新单排入 {len(rw['new']) - len(rw['unplaced_new'])}"
-          f" / 挪动旧单 {len(rw['update'])} / 未排下 {len(rw['unplaced_new'])}")
+    ps = out["planSetInfo"]
+    print(f"入口：{out['entry']}")
+    print(f"计划包 {ps.get('planPackageCount')} / 计划 {ps.get('planCount')} / 新工单 {ps.get('workOrderCount')}"
+          f" / 旧工单 {len(out['oldWorkOrders'])}")
+    detail_count = sum(len(o.get("details", []))
+                       for s in out["planStrategyList"]
+                       for p in s["planList"]
+                       for o in p.get("workOrders", []))
+    print(f"明细 {detail_count} 条")
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

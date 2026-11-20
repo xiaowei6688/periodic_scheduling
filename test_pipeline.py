@@ -34,14 +34,17 @@ def raw_order(guid: str) -> dict:
 class TestPipeline(unittest.TestCase):
     def test_full_flow_offline(self):
         out = run_pipeline(load_payload(), [raw_order("old-1")])
-        self.assertEqual(set(out), {"summary", "work_order_details", "rework"})
-        # split_input.json 的黄金值：16 张工单 / 78 条明细
-        self.assertEqual(out["summary"]["new_orders"], 16)
-        self.assertEqual(len(out["work_order_details"]), 78)
-        rw = out["rework"]
-        self.assertIn(rw["entry"], {"normal", "insert_rework", "force_insert"})
-        self.assertEqual(len(rw["new"]), out["summary"]["new_orders"])
-        self.assertEqual(out["summary"]["old_orders"], 1)
+        self.assertEqual(set(out), {"planSetInfo", "planStrategyList",
+                                    "oldWorkOrders", "entry", "forceProposals", "warnings"})
+        # 计划包 2（planStrategyList 条数）/ 计划 7（planList 总数）/ 新工单 16 / 明细 78；旧工单 1 条平级放
+        ps = out["planSetInfo"]
+        self.assertEqual((ps["planPackageCount"], ps["planCount"], ps["workOrderCount"]), (2, 7, 16))
+        new_orders = [o for s in out["planStrategyList"] for p in s["planList"]
+                      for o in p.get("workOrders", [])]
+        self.assertEqual(len(new_orders), 16)
+        self.assertEqual(sum(len(o.get("details", [])) for o in new_orders), 78)
+        self.assertEqual(len(out["oldWorkOrders"]), 1)
+        self.assertIn(out["entry"], {"normal", "insert_rework", "force_insert"})
 
     def test_conservation_failure_raises(self):
         # 设备凭空重复 -> verify 不通过 -> 整个流程必须拒绝向下走

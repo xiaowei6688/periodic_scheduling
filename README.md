@@ -50,7 +50,7 @@ out/result.json
 from main import run_pipeline
 
 out = run_pipeline(payload, existing_rows=None, enforce_quota=True)
-# out = {"summary": {...}, "work_order_details": [...], "rework": {...}}
+# out = {"planSetInfo": {...}, "planStrategyList": [...], "oldWorkOrders": [...], "entry": "...", ...}
 ```
 
 CLI 参数（`main.py`；`rework_algorithm.py` 同义）：
@@ -105,29 +105,44 @@ CLI 参数（`main.py`；`rework_algorithm.py` 同义）：
 ## 5. 输入 / 输出
 
 - 输入报文：`planSetInfo + planStrategyList + airports`；**不再传 `capacityTable`**。字段含义与 JSON 结构见 [输入参数说明.md](输入参数说明.md)。
-- 输出：`out/result.json`。
+- 输出：按**输入报文格式**回组，`out/result.json`。
 
 ```jsonc
 {
-  "summary": {"window": {...}, "new_orders": 16, "old_orders": 0, "total": 16, "existing_filtered": {...}},
-  "work_order_details": [{"work_order_guid": "...", "device": {...}}],
-  "rework": {
-    "entry": "normal",                       // normal / insert_rework / force_insert
-    "window": {"start": "...", "end": "..."},
-    "new": [{"...新工单字段...", "start_date": null, "end_date": null}],
-    "update": [{"work_order_guid": "...", "start_date": "...", "end_date": "..."}],
-    "still_unplaced_old": [],
-    "unplaced_new": [],
-    "force_proposals": [],
-    "rework_chain": [],
-    "warnings": []
-  }
+  "planSetInfo": {
+    // ...原计划集字段...
+    "planPackageCount": 2,   // 计划包数量 = planStrategyList 条数
+    "planCount": 7,          // 计划数量 = 各 planList 条数之和
+    "workOrderCount": 16     // 拆分工单数量（汇总）
+  },
+  "planStrategyList": [      // 计划包列表
+    {
+      // ...原策略字段...
+      "planCount": 3,         // 本计划包下的计划数量
+      "workOrderCount": 12,   // 本计划包下的新工单数量
+      "planList": [           // 计划列表
+        {
+          // ...原计划字段...
+          "workOrderCount": 4,     // 本计划下拆出的工单数量
+          "workOrders": [ { "...新工单字段...", "start_date": "...", "end_date": "...", "details": [...] } ]
+        }
+      ]
+    }
+  ],
+  // 旧工单单独一级，与 planStrategyList 平级；动过的旧单 startDate/endDate 已回写
+  "oldWorkOrders": [ { "...旧工单DTO...", "startDate": "...", "endDate": "..." } ],
+
+  // 附注
+  "entry": "normal",              // normal / insert_rework / force_insert
+  "forceProposals": [],           // entry=force_insert 时的强插建议
+  "warnings": []
 }
 ```
 
 新工单关键字段：`work_order_guid / work_order_no / plan_guid / inspection_method(1机场,2人工) /
 cycle_airport_guid / parent_device_num / second_num / capacity_limit / schedule_status /
-schedule_reason / pre_start_date / pre_end_date / time_period / start_date / end_date / plan(原样)`。
+schedule_reason / pre_start_date / pre_end_date / time_period / start_date / end_date / details`。
+未排下的新工单保持 `start_date/end_date = null`，仍挂在所属计划的 `workOrders` 里。
 
 > `planGuid` 只用于把工单追溯到所属计划，不参与 id 生成。平台若按“计划包→计划→工单”树结构下发并自行生成 id，`planGuid` 可选；工单的 `plan_guid` 会为空，其余算法不受影响。
 
