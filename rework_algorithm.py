@@ -194,7 +194,6 @@ def canonicalize(order: dict) -> dict:
             "source": "existing",
             "status": str(order.get("work_order_status") or ""),
             "order_source": raw.get("orderSource"),
-            "preemption_allowed": raw.get("allowPreempt"),
             "schedule_reason": order.get("schedule_reason")
             or raw.get("scheduleReason"),
             "raw": order,
@@ -222,7 +221,6 @@ def canonicalize(order: dict) -> dict:
         "source": "new",
         "status": order.get("work_order_status"),
         "order_source": order.get("order_source"),
-        "preemption_allowed": None,
         "schedule_reason": order.get("schedule_reason"),
         "raw": order,
     }
@@ -445,11 +443,6 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
         status = order["status"]
         speciality = order.get("speciality") or ""
         if status == STATUS_QUEUED and speciality != "sms":
-            if order.get("preemption_allowed") is False:
-                # 参与占用不等于允许被抢占（文档 临时§六）
-                if order["seconds"] > 0:
-                    result.fixed.append(order)
-                continue
             if _window_intersects(order, window_start, window_end):
                 result.reworkable.append(order)
             # 预执行窗口与请求范围不相交：不进入本次任务，也不占本次日历

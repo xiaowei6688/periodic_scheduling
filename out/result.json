@@ -3538,7 +3538,7 @@
   },
   "work_order_details": [
     {
-      "work_order_guid": "tms_2026_262ed064a28c47848e68e62bbe6eaaa0",
+      "work_order_guid": "tms_2026_f9cd30f807c84ad19416c372fce486a4",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3547,7 +3547,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3561,11 +3560,11 @@
         "filter": 1,
         "filterTd": 0,
         "sort": 20,
-        "psrEquipCode": "PSR-020"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_262ed064a28c47848e68e62bbe6eaaa0",
+      "work_order_guid": "tms_2026_f9cd30f807c84ad19416c372fce486a4",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3574,7 +3573,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3588,11 +3586,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 21,
-        "psrEquipCode": "PSR-021"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_262ed064a28c47848e68e62bbe6eaaa0",
+      "work_order_guid": "tms_2026_f9cd30f807c84ad19416c372fce486a4",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3601,7 +3599,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3615,11 +3612,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 22,
-        "psrEquipCode": "PSR-022"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_b2c2759b8f9948b1b1a111c712f98ade",
+      "work_order_guid": "tms_2026_1f7cdf90f2b24aa2b0bac4e3f72228b5",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3628,7 +3625,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3642,11 +3638,11 @@
         "filter": 1,
         "filterTd": 0,
         "sort": 20,
-        "psrEquipCode": "PSR-020"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_b2c2759b8f9948b1b1a111c712f98ade",
+      "work_order_guid": "tms_2026_1f7cdf90f2b24aa2b0bac4e3f72228b5",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3655,7 +3651,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3669,11 +3664,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 21,
-        "psrEquipCode": "PSR-021"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_b2c2759b8f9948b1b1a111c712f98ade",
+      "work_order_guid": "tms_2026_1f7cdf90f2b24aa2b0bac4e3f72228b5",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3682,7 +3677,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3696,11 +3690,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 22,
-        "psrEquipCode": "PSR-022"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_5f4db617864b401f8ff0d413ca0e6e7f",
+      "work_order_guid": "tms_2026_d5a0855dcd4941e195623fdf903a8267",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3709,7 +3703,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3723,11 +3716,11 @@
         "filter": 1,
         "filterTd": 0,
         "sort": 20,
-        "psrEquipCode": "PSR-020"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_5f4db617864b401f8ff0d413ca0e6e7f",
+      "work_order_guid": "tms_2026_d5a0855dcd4941e195623fdf903a8267",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3736,7 +3729,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3750,11 +3742,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 21,
-        "psrEquipCode": "PSR-021"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_5f4db617864b401f8ff0d413ca0e6e7f",
+      "work_order_guid": "tms_2026_d5a0855dcd4941e195623fdf903a8267",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3763,7 +3755,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3777,11 +3768,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 22,
-        "psrEquipCode": "PSR-022"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3790,7 +3781,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3804,11 +3794,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3817,7 +3807,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3831,11 +3820,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3844,7 +3833,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3858,11 +3846,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3871,7 +3859,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3885,11 +3872,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 4,
-        "psrEquipCode": "PSR-004"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3898,7 +3885,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3912,11 +3898,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 5,
-        "psrEquipCode": "PSR-005"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3925,7 +3911,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3939,11 +3924,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 6,
-        "psrEquipCode": "PSR-006"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3952,7 +3937,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3966,11 +3950,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 7,
-        "psrEquipCode": "PSR-007"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -3979,7 +3963,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -3993,11 +3976,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 8,
-        "psrEquipCode": "PSR-008"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4006,7 +3989,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4020,11 +4002,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 9,
-        "psrEquipCode": "PSR-009"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4033,7 +4015,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4047,11 +4028,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 10,
-        "psrEquipCode": "PSR-010"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4060,7 +4041,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4074,11 +4054,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 11,
-        "psrEquipCode": "PSR-011"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+      "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4087,7 +4067,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4101,11 +4080,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 12,
-        "psrEquipCode": "PSR-012"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+      "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4114,7 +4093,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4128,11 +4106,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 13,
-        "psrEquipCode": "PSR-013"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+      "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4141,7 +4119,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4155,11 +4132,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 14,
-        "psrEquipCode": "PSR-014"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+      "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4168,7 +4145,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4182,11 +4158,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 15,
-        "psrEquipCode": "PSR-015"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+      "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4195,7 +4171,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4209,11 +4184,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 16,
-        "psrEquipCode": "PSR-016"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+      "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4222,7 +4197,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4236,11 +4210,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 17,
-        "psrEquipCode": "PSR-017"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_88bcf62f49b34b459a978b9b1ee14703",
+      "work_order_guid": "tms_2026_e7d819e46e5c438ebacb795284bcd3bc",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4249,7 +4223,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4263,11 +4236,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 18,
-        "psrEquipCode": "PSR-018"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_88bcf62f49b34b459a978b9b1ee14703",
+      "work_order_guid": "tms_2026_e7d819e46e5c438ebacb795284bcd3bc",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4276,7 +4249,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4290,11 +4262,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 19,
-        "psrEquipCode": "PSR-019"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4303,7 +4275,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4317,11 +4288,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4330,7 +4301,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4344,11 +4314,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4357,7 +4327,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4371,11 +4340,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4384,7 +4353,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4398,11 +4366,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 4,
-        "psrEquipCode": "PSR-004"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4411,7 +4379,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4425,11 +4392,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 5,
-        "psrEquipCode": "PSR-005"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4438,7 +4405,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4452,11 +4418,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 6,
-        "psrEquipCode": "PSR-006"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4465,7 +4431,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4479,11 +4444,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 7,
-        "psrEquipCode": "PSR-007"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4492,7 +4457,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4506,11 +4470,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 8,
-        "psrEquipCode": "PSR-008"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4519,7 +4483,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4533,11 +4496,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 9,
-        "psrEquipCode": "PSR-009"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4546,7 +4509,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4560,11 +4522,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 10,
-        "psrEquipCode": "PSR-010"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4573,7 +4535,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4587,11 +4548,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 11,
-        "psrEquipCode": "PSR-011"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+      "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4600,7 +4561,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4614,11 +4574,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 12,
-        "psrEquipCode": "PSR-012"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+      "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4627,7 +4587,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4641,11 +4600,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 13,
-        "psrEquipCode": "PSR-013"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+      "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4654,7 +4613,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4668,11 +4626,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 14,
-        "psrEquipCode": "PSR-014"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+      "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4681,7 +4639,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4695,11 +4652,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 15,
-        "psrEquipCode": "PSR-015"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+      "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4708,7 +4665,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4722,11 +4678,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 16,
-        "psrEquipCode": "PSR-016"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+      "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4735,7 +4691,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4749,11 +4704,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 17,
-        "psrEquipCode": "PSR-017"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_f1e3efcfea5345c1b601b8c648692b47",
+      "work_order_guid": "tms_2026_064fcc5069a247348c366fe70eb5617a",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4762,7 +4717,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4776,11 +4730,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 18,
-        "psrEquipCode": "PSR-018"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_f1e3efcfea5345c1b601b8c648692b47",
+      "work_order_guid": "tms_2026_064fcc5069a247348c366fe70eb5617a",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4789,7 +4743,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4803,11 +4756,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 19,
-        "psrEquipCode": "PSR-019"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4816,7 +4769,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4830,11 +4782,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4843,7 +4795,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4857,11 +4808,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4870,7 +4821,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4884,11 +4834,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4897,7 +4847,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4911,11 +4860,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 4,
-        "psrEquipCode": "PSR-004"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4924,7 +4873,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4938,11 +4886,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 5,
-        "psrEquipCode": "PSR-005"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4951,7 +4899,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4965,11 +4912,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 6,
-        "psrEquipCode": "PSR-006"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -4978,7 +4925,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -4992,11 +4938,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 7,
-        "psrEquipCode": "PSR-007"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5005,7 +4951,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5019,11 +4964,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 8,
-        "psrEquipCode": "PSR-008"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5032,7 +4977,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5046,11 +4990,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 9,
-        "psrEquipCode": "PSR-009"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5059,7 +5003,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5073,11 +5016,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 10,
-        "psrEquipCode": "PSR-010"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5086,7 +5029,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5100,11 +5042,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 11,
-        "psrEquipCode": "PSR-011"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+      "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5113,7 +5055,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5127,11 +5068,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 12,
-        "psrEquipCode": "PSR-012"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+      "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5140,7 +5081,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5154,11 +5094,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 13,
-        "psrEquipCode": "PSR-013"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+      "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5167,7 +5107,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5181,11 +5120,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 14,
-        "psrEquipCode": "PSR-014"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+      "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5194,7 +5133,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5208,11 +5146,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 15,
-        "psrEquipCode": "PSR-015"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+      "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5221,7 +5159,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5235,11 +5172,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 16,
-        "psrEquipCode": "PSR-016"
+        "towerBranchName": "2"
       }
     },
     {
-      "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+      "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5248,7 +5185,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5262,11 +5198,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 17,
-        "psrEquipCode": "PSR-017"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_65b958be9baf484493592678fd4e3420",
+      "work_order_guid": "tms_2026_6952bf242ead4357b3c1fd4170797ec9",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5275,7 +5211,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5289,11 +5224,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 18,
-        "psrEquipCode": "PSR-018"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_65b958be9baf484493592678fd4e3420",
+      "work_order_guid": "tms_2026_6952bf242ead4357b3c1fd4170797ec9",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5302,7 +5237,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -5316,11 +5250,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 19,
-        "psrEquipCode": "PSR-019"
+        "towerBranchName": "3"
       }
     },
     {
-      "work_order_guid": "tms_2026_72922f77481649319b53b07f452ce4bf",
+      "work_order_guid": "tms_2026_e394555b018449148dc73f96cad9e69f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5329,7 +5263,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5343,11 +5276,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_72922f77481649319b53b07f452ce4bf",
+      "work_order_guid": "tms_2026_e394555b018449148dc73f96cad9e69f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5356,7 +5289,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5370,11 +5302,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_72922f77481649319b53b07f452ce4bf",
+      "work_order_guid": "tms_2026_e394555b018449148dc73f96cad9e69f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5383,7 +5315,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5397,11 +5328,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_2ce8003f1cef4dad9d0b29d8cbae7e37",
+      "work_order_guid": "tms_2026_26d5a0b70c10406e93b1bca009685bec",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5410,7 +5341,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5424,11 +5354,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_2ce8003f1cef4dad9d0b29d8cbae7e37",
+      "work_order_guid": "tms_2026_26d5a0b70c10406e93b1bca009685bec",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5437,7 +5367,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5451,11 +5380,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_2ce8003f1cef4dad9d0b29d8cbae7e37",
+      "work_order_guid": "tms_2026_26d5a0b70c10406e93b1bca009685bec",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5464,7 +5393,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5478,11 +5406,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f8f12d8882f845efaa4a4a89085fd03e",
+      "work_order_guid": "tms_2026_954bddc9d5bc4919a2b01491a798c06f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5491,7 +5419,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5505,11 +5432,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f8f12d8882f845efaa4a4a89085fd03e",
+      "work_order_guid": "tms_2026_954bddc9d5bc4919a2b01491a798c06f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5518,7 +5445,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5532,11 +5458,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_f8f12d8882f845efaa4a4a89085fd03e",
+      "work_order_guid": "tms_2026_954bddc9d5bc4919a2b01491a798c06f",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5545,7 +5471,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5559,11 +5484,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_32921379ac0649ecad695d6ed79ee5bb",
+      "work_order_guid": "tms_2026_c0019e4af199419c9964a577545b6968",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5572,7 +5497,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5586,11 +5510,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 1,
-        "psrEquipCode": "PSR-001"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_32921379ac0649ecad695d6ed79ee5bb",
+      "work_order_guid": "tms_2026_c0019e4af199419c9964a577545b6968",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5599,7 +5523,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5613,11 +5536,11 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 2,
-        "psrEquipCode": "PSR-002"
+        "towerBranchName": "1"
       }
     },
     {
-      "work_order_guid": "tms_2026_32921379ac0649ecad695d6ed79ee5bb",
+      "work_order_guid": "tms_2026_c0019e4af199419c9964a577545b6968",
       "device": {
         "id": -1,
         "createUser": -1,
@@ -5626,7 +5549,6 @@
         "updateTime": "",
         "createDept": -1,
         "deptCode": "",
-        "isDeleted": 0,
         "fbProfessional": "",
         "fbYear": "",
         "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -5640,7 +5562,7 @@
         "filter": 0,
         "filterTd": 0,
         "sort": 3,
-        "psrEquipCode": "PSR-003"
+        "towerBranchName": "1"
       }
     }
   ],
@@ -5652,7 +5574,7 @@
     },
     "new": [
       {
-        "work_order_guid": "tms_2026_57da3e7c6a9b4d17bdab939604d0d98f",
+        "work_order_guid": "tms_2026_dc7129ef3ca540139aa9c260b91e116b",
         "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场A-4",
         "plan_guid": "p-a-0003",
         "inspection_method": "1",
@@ -5743,7 +5665,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_51a785fa6bb84cf181df2a21c60ebd9e",
+        "work_order_guid": "tms_2026_823ae44f696443618509e69c59009940",
         "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场B-5",
         "plan_guid": "p-a-0003",
         "inspection_method": "1",
@@ -5834,7 +5756,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_88bcf62f49b34b459a978b9b1ee14703",
+        "work_order_guid": "tms_2026_e7d819e46e5c438ebacb795284bcd3bc",
         "work_order_no": "ZQ-JH-20261116090000001-3-苍岭机场C-6",
         "plan_guid": "p-a-0003",
         "inspection_method": "1",
@@ -5925,7 +5847,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_f92f45c97f2142128a07ef217f4a044c",
+        "work_order_guid": "tms_2026_25eb318a5a2f4fdc940104d8c57dce01",
         "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场A-7",
         "plan_guid": "p-a-0001",
         "inspection_method": "1",
@@ -6016,7 +5938,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_fec802cc39b84d78a9f65ff960c2435f",
+        "work_order_guid": "tms_2026_61b121c3b15d4c0ab1d31e97332f6171",
         "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场B-8",
         "plan_guid": "p-a-0001",
         "inspection_method": "1",
@@ -6107,7 +6029,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_f1e3efcfea5345c1b601b8c648692b47",
+        "work_order_guid": "tms_2026_064fcc5069a247348c366fe70eb5617a",
         "work_order_no": "ZQ-JH-20261116090000001-1-苍岭机场C-9",
         "plan_guid": "p-a-0001",
         "inspection_method": "1",
@@ -6198,7 +6120,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_29328c7d1fe34916aa566ba66532427a",
+        "work_order_guid": "tms_2026_a8df1a050f054aeca9642f0c7756ad8b",
         "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场A-10",
         "plan_guid": "p-a-0002",
         "inspection_method": "1",
@@ -6289,7 +6211,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_33a2d63f491a4f3aaf282a2b09733f81",
+        "work_order_guid": "tms_2026_1faab9c0068143678cc00af96eccc710",
         "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场B-11",
         "plan_guid": "p-a-0002",
         "inspection_method": "1",
@@ -6380,7 +6302,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_65b958be9baf484493592678fd4e3420",
+        "work_order_guid": "tms_2026_6952bf242ead4357b3c1fd4170797ec9",
         "work_order_no": "ZQ-JH-20261116090000001-2-苍岭机场C-12",
         "plan_guid": "p-a-0002",
         "inspection_method": "1",
@@ -6471,7 +6393,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_72922f77481649319b53b07f452ce4bf",
+        "work_order_guid": "tms_2026_e394555b018449148dc73f96cad9e69f",
         "work_order_no": "ZQ-JH-20261116090000002-1-苍岭机场A-13",
         "plan_guid": "p-b-0001",
         "inspection_method": "1",
@@ -6562,7 +6484,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_2ce8003f1cef4dad9d0b29d8cbae7e37",
+        "work_order_guid": "tms_2026_26d5a0b70c10406e93b1bca009685bec",
         "work_order_no": "ZQ-JH-20261116090000002-2-苍岭机场A-14",
         "plan_guid": "p-b-0002",
         "inspection_method": "1",
@@ -6653,7 +6575,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_f8f12d8882f845efaa4a4a89085fd03e",
+        "work_order_guid": "tms_2026_954bddc9d5bc4919a2b01491a798c06f",
         "work_order_no": "ZQ-JH-20261116090000002-3-苍岭机场A-15",
         "plan_guid": "p-b-0003",
         "inspection_method": "1",
@@ -6744,7 +6666,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_32921379ac0649ecad695d6ed79ee5bb",
+        "work_order_guid": "tms_2026_c0019e4af199419c9964a577545b6968",
         "work_order_no": "ZQ-JH-20261116090000002-4-苍岭机场A-16",
         "plan_guid": "p-b-0004",
         "inspection_method": "1",
@@ -6835,7 +6757,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_262ed064a28c47848e68e62bbe6eaaa0",
+        "work_order_guid": "tms_2026_f9cd30f807c84ad19416c372fce486a4",
         "work_order_no": "RX-JH-20261116090000001-1-1",
         "plan_guid": "p-a-0001",
         "inspection_method": "2",
@@ -6926,7 +6848,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_b2c2759b8f9948b1b1a111c712f98ade",
+        "work_order_guid": "tms_2026_1f7cdf90f2b24aa2b0bac4e3f72228b5",
         "work_order_no": "RX-JH-20261116090000001-2-1",
         "plan_guid": "p-a-0002",
         "inspection_method": "2",
@@ -7017,7 +6939,7 @@
         }
       },
       {
-        "work_order_guid": "tms_2026_5f4db617864b401f8ff0d413ca0e6e7f",
+        "work_order_guid": "tms_2026_d5a0855dcd4941e195623fdf903a8267",
         "work_order_no": "RX-JH-20261116090000001-3-1",
         "plan_guid": "p-a-0003",
         "inspection_method": "2",

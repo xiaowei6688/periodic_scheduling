@@ -6,11 +6,11 @@
     {
       "planSetInfo":       { ... },                      // 计划集，客户原有结构
       "planStrategyList":  [ { ..., deviceList: [...], planList: [...] } ],
-      "airports":          { "ap-a": {airportName, airportSn, airportModel} }
+      "airports":          [ {airportGuid, airportName, airportSn, airportModel} ]
     }
 
 `deviceList[]` 在原报文基础上多带 5 个台账字段（Java 里这些要查 DeviceTmsTowerInfo）：
-    coveringAirports / filter / filterTd / isDeleted / sort
+    coveringAirports / filter / filterTd / sort / towerBranchName
 
 场景（刻意覆盖所有拆分分支）：
     策略 A  输电本体(workNature=1, t-rcxs, 可见光)  isLine=0 整线  22 基
@@ -50,11 +50,11 @@ STRATEGY_D_GUID = "f1b2c3d4000041118222333444555ddd"   # 变电
 LINE_C_GUID = "a1b2c3d5000041118222333444555fff"       # 10kV 苍岭馈线
 
 # 机场台账（Java 里查 EquipAirportInfo）。AP-C 故意用未配置型号，验证保底分支
-AIRPORTS = {
-    "ap-a": {"airportName": "苍岭机场A", "airportSn": "SN-JC03-001", "airportModel": "jc_03"},
-    "ap-b": {"airportName": "苍岭机场B", "airportSn": "SN-JC08-002", "airportModel": "jc_08"},
-    "ap-c": {"airportName": "苍岭机场C", "airportSn": "SN-X-003", "airportModel": "X-UNKNOWN"},
-}
+AIRPORTS = [
+    {"airportGuid": "ap-a", "airportName": "苍岭机场A", "airportSn": "SN-JC03-001", "airportModel": "jc_03"},
+    {"airportGuid": "ap-b", "airportName": "苍岭机场B", "airportSn": "SN-JC08-002", "airportModel": "jc_08"},
+    {"airportGuid": "ap-c", "airportName": "苍岭机场C", "airportSn": "SN-X-003", "airportModel": "X-UNKNOWN"},
+]
 
 # 承载力不再随报文传：拆单侧内置 airport_capacity()（单机场承载力.xlsx / Java AirportPlanScheduler.capacity）
 
@@ -77,13 +77,14 @@ def build_device(tower: dict, strategy_guid: str, line_name: str, speciality: st
         "jobObjectDeviceName": tower["tower_name"],
         "speciality": speciality,
         "span": str(tower["span"]),
-        # ---- 以下 6 个是 Java 要查台账才能拿到的字段，这里内联 ----
+        # ---- 以下是 Java 要查台账才能拿到的字段，这里内联 ----
         "coveringAirports": tower["covering_airports"],
         "filter": tower["filter"],
         "filterTd": tower["filter_td"],
-        "isDeleted": 0,
         "sort": tower["sort"],
+        "towerBranchName": tower["branch_name"],
     })
+    device.pop("isDeleted", None)   # 输入参数没有 isDeleted，也不做删除判断
     return device
 
 
@@ -164,6 +165,7 @@ def build_towers(line_guid: str, count: int, covering_rule, span_rule) -> list[d
             "tower_guid": f"{line_guid[:6]}-t{i:03d}",
             "tower_name": f"苍岭线{i:03d}号塔",
             "line_guid": line_guid,
+            "branch_name": str((i - 1) // 8 + 1),   # towerBranchName，和 sort 一起定顺序
             "sort": i,
             "span": span_rule(i),
             **covering_rule(i),
@@ -261,9 +263,10 @@ def main() -> None:
             "speciality": "sms",
             "span": "",
             "coveringAirports": "ap-a",
-            "filter": 0, "filterTd": 0, "isDeleted": 0,
-            "sort": idx,
+            "filter": 0, "filterTd": 0,
+            "sort": idx, "towerBranchName": "1",
         })
+        dev.pop("isDeleted", None)   # 输入参数没有 isDeleted
         devices_d.append(dev)
     base_d = {"job_object": "110kV 苍岭变电站", "line_guid": station_guid,
               "work_nature": "1", "work_nature_sub": "s-rcxs", "speciality": "sms",

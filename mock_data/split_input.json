@@ -80,7 +80,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -93,7 +92,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 1
+          "sort": 1,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -103,7 +103,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -116,7 +115,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 2
+          "sort": 2,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -126,7 +126,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -139,7 +138,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 3
+          "sort": 3,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -149,7 +149,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -162,7 +161,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 4
+          "sort": 4,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -172,7 +172,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -185,7 +184,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 5
+          "sort": 5,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -195,7 +195,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -208,7 +207,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 6
+          "sort": 6,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -218,7 +218,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -231,7 +230,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 7
+          "sort": 7,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -241,7 +241,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -254,7 +253,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 8
+          "sort": 8,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -264,7 +264,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -277,7 +276,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 9
+          "sort": 9,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -287,7 +287,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -300,7 +299,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 10
+          "sort": 10,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -310,7 +310,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -323,7 +322,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 11
+          "sort": 11,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -333,7 +333,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -346,7 +345,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 12
+          "sort": 12,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -356,7 +356,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -369,7 +368,8 @@
           "coveringAirports": "ap-b",
           "filter": 0,
           "filterTd": 0,
-          "sort": 13
+          "sort": 13,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -379,7 +379,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -392,7 +391,8 @@
           "coveringAirports": "ap-b",
           "filter": 0,
           "filterTd": 0,
-          "sort": 14
+          "sort": 14,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -402,7 +402,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -415,7 +414,8 @@
           "coveringAirports": "ap-b",
           "filter": 0,
           "filterTd": 0,
-          "sort": 15
+          "sort": 15,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -425,7 +425,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -438,7 +437,8 @@
           "coveringAirports": "ap-b",
           "filter": 0,
           "filterTd": 0,
-          "sort": 16
+          "sort": 16,
+          "towerBranchName": "2"
         },
         {
           "id": -1,
@@ -448,7 +448,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -461,7 +460,8 @@
           "coveringAirports": "ap-b",
           "filter": 0,
           "filterTd": 0,
-          "sort": 17
+          "sort": 17,
+          "towerBranchName": "3"
         },
         {
           "id": -1,
@@ -471,7 +471,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -484,7 +483,8 @@
           "coveringAirports": "ap-c",
           "filter": 0,
           "filterTd": 0,
-          "sort": 18
+          "sort": 18,
+          "towerBranchName": "3"
         },
         {
           "id": -1,
@@ -494,7 +494,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -507,7 +506,8 @@
           "coveringAirports": "ap-c",
           "filter": 0,
           "filterTd": 0,
-          "sort": 19
+          "sort": 19,
+          "towerBranchName": "3"
         },
         {
           "id": -1,
@@ -517,7 +517,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -530,7 +529,8 @@
           "coveringAirports": "ap-a",
           "filter": 1,
           "filterTd": 0,
-          "sort": 20
+          "sort": 20,
+          "towerBranchName": "3"
         },
         {
           "id": -1,
@@ -540,7 +540,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -553,7 +552,8 @@
           "coveringAirports": "",
           "filter": 0,
           "filterTd": 0,
-          "sort": 21
+          "sort": 21,
+          "towerBranchName": "3"
         },
         {
           "id": -1,
@@ -563,7 +563,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "b1b2c3d4000041118222333444555bbb",
@@ -576,7 +575,8 @@
           "coveringAirports": "",
           "filter": 0,
           "filterTd": 0,
-          "sort": 22
+          "sort": 22,
+          "towerBranchName": "3"
         }
       ],
       "planList": [
@@ -849,7 +849,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -862,7 +861,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 1
+          "sort": 1,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -872,7 +872,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -885,7 +884,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 2
+          "sort": 2,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -895,7 +895,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -908,7 +907,8 @@
           "coveringAirports": "ap-a",
           "filter": 0,
           "filterTd": 0,
-          "sort": 3
+          "sort": 3,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -918,7 +918,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -931,7 +930,8 @@
           "coveringAirports": "",
           "filter": 0,
           "filterTd": 0,
-          "sort": 4
+          "sort": 4,
+          "towerBranchName": "1"
         },
         {
           "id": -1,
@@ -941,7 +941,6 @@
           "updateTime": "",
           "createDept": -1,
           "deptCode": "",
-          "isDeleted": 0,
           "fbProfessional": "",
           "fbYear": "",
           "planStrategyGuid": "c1b2c3d4000041118222333444555ccc",
@@ -954,7 +953,8 @@
           "coveringAirports": "",
           "filter": 0,
           "filterTd": 0,
-          "sort": 5
+          "sort": 5,
+          "towerBranchName": "1"
         }
       ],
       "planList": [
@@ -1249,21 +1249,24 @@
       ]
     }
   ],
-  "airports": {
-    "ap-a": {
+  "airports": [
+    {
+      "airportGuid": "ap-a",
       "airportName": "苍岭机场A",
       "airportSn": "SN-JC03-001",
       "airportModel": "jc_03"
     },
-    "ap-b": {
+    {
+      "airportGuid": "ap-b",
       "airportName": "苍岭机场B",
       "airportSn": "SN-JC08-002",
       "airportModel": "jc_08"
     },
-    "ap-c": {
+    {
+      "airportGuid": "ap-c",
       "airportName": "苍岭机场C",
       "airportSn": "SN-X-003",
       "airportModel": "X-UNKNOWN"
     }
-  }
+  ]
 }

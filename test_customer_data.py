@@ -35,7 +35,7 @@ GOLDEN = {
     "zidingyi": {"plans": 14, "orders": 56, "details": 476},
 }
 
-AIRPORTS = {"ap-a": {"airportName": "机场A", "airportSn": "SN1", "airportModel": "jc_03"}}
+AIRPORTS = [{"airportGuid": "ap-a", "airportName": "机场A", "airportSn": "SN1", "airportModel": "jc_03"}]
 
 
 def build_input(name: str) -> dict:
@@ -47,7 +47,6 @@ def build_input(name: str) -> dict:
             device["coveringAirports"] = "ap-a" if index % 7 else ""
             device["filter"] = 0
             device["filterTd"] = 0
-            device["isDeleted"] = 0
             device["sort"] = index
             # span 保持客户原值（全是空字符串），用于验证通道估时保底
     payload["airports"] = AIRPORTS
@@ -116,7 +115,7 @@ class TestSubstationEstimation(unittest.TestCase):
 
     def _ledgers(self, routes):
         return Ledgers(
-            airports={"ap-a": {"airportName": "A", "airportModel": "jc_03"}},
+            airports=[{"airportGuid": "ap-a", "airportName": "A", "airportModel": "jc_03"}],
             device_routes=routes,
         )
 

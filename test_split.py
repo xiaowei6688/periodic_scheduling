@@ -38,7 +38,7 @@ def load_input() -> dict:
 def tower(**overrides) -> dict:
     base = {
         "tower_guid": "t1", "tower_name": "塔1", "line_guid": "L1",
-        "sort": 1, "is_deleted": 0,
+        "branch_name": "1", "sort": 1,
         "covering_airports": "ap-a", "filter": 0, "filter_td": 0, "span": 500,
     }
     base.update(overrides)
@@ -159,24 +159,17 @@ class TestDeviceAcquisition(unittest.TestCase):
                     {"jobObjectDeviceGuid": t["tower_guid"], "jobObjectDeviceName": t["tower_name"],
                      "jobObjectGuid": "L1", "span": str(t["span"]),
                      "coveringAirports": t["covering_airports"], "filter": t["filter"],
-                     "filterTd": t["filter_td"], "isDeleted": t["is_deleted"],
-                     "sort": t["sort"]}
+                     "filterTd": t["filter_td"],
+                     "sort": t["sort"], "towerBranchName": t["branch_name"]}
                     for t in towers
                 ],
             }],
-            "airports": {},
+            "airports": [],
         }
 
     def _plan(self) -> dict:
         return {"planGuid": "p1", "speciality": "tms", "workNature": "1",
                 "jobObjectGuid": "L1", "jobObject": "线路1"}
-
-    def test_deleted_device_skipped(self):
-        payload = self._payload([tower(is_deleted=1)])
-        result = PlanSplitResult(plan=self._plan(), strategy=payload["planStrategyList"][0])
-        devices = query_strategy_devices(self._plan(), payload["planStrategyList"][0], result)
-        self.assertEqual(devices, [])
-        self.assertEqual(result.unmapped, ["t1"])
 
     def test_kept_device_included(self):
         payload = self._payload([tower()])
@@ -193,30 +186,24 @@ class TestDeviceAcquisition(unittest.TestCase):
         devices = query_strategy_devices(self._plan(), strategy, result)
         self.assertEqual([d.device_guid for d in devices], ["t1", "t2"])
 
-    def test_placeholder_minus_one_is_not_deleted(self):
-        """报文未落库时 isDeleted 是 -1，不能当成删除（客户原始数据就是这样）。"""
-        payload = self._payload([tower(is_deleted=-1)])
+    def test_branch_then_sort_order(self):
+        """towerBranchName 优先，组内按 sort。"""
+        payload = self._payload([tower(tower_guid="b2s1", branch_name="2", sort=1),
+                                 tower(tower_guid="b1s9", branch_name="1", sort=9),
+                                 tower(tower_guid="b1s3", branch_name="1", sort=3)])
         strategy = payload["planStrategyList"][0]
         result = PlanSplitResult(plan=self._plan(), strategy=strategy)
         devices = query_strategy_devices(self._plan(), strategy, result)
-        self.assertEqual([d.device_guid for d in devices], ["t1"])
-        self.assertEqual(result.unmapped, [])
+        self.assertEqual([d.device_guid for d in devices], ["b1s3", "b1s9", "b2s1"])
 
-    def test_only_one_means_deleted(self):
-        for flag in (1, "1", True):
-            with self.subTest(flag=flag):
-                payload = self._payload([tower(is_deleted=flag)])
-                strategy = payload["planStrategyList"][0]
-                result = PlanSplitResult(plan=self._plan(), strategy=strategy)
-                self.assertEqual(query_strategy_devices(self._plan(), strategy, result), [])
-
-    def test_missing_flag_treated_as_not_deleted(self):
-        payload = self._payload([tower()])
-        payload["planStrategyList"][0]["deviceList"][0].pop("isDeleted")
+    def test_branch_numeric_order(self):
+        """分支名是数字时按数值排，不是按字符串排。"""
+        payload = self._payload([tower(tower_guid="b10", branch_name="10", sort=1),
+                                 tower(tower_guid="b2", branch_name="2", sort=1)])
         strategy = payload["planStrategyList"][0]
         result = PlanSplitResult(plan=self._plan(), strategy=strategy)
         devices = query_strategy_devices(self._plan(), strategy, result)
-        self.assertEqual(len(devices), 1)
+        self.assertEqual([d.device_guid for d in devices], ["b2", "b10"])
 
 
 class TestMockDataset(unittest.TestCase):
@@ -313,10 +300,10 @@ class TestInputContract(unittest.TestCase):
         "coveringAirports",   # DeviceTmsTowerInfo.coveringAirports
         "filter",             # filter
         "filterTd",           # filterTd（通道过滤）
-        "isDeleted",          # isDeleted
-        "sort",               # sort（装箱顺序）
+        "sort",               # sort（组内装箱顺序）
+        "towerBranchName",    # 分支名，与 sort 一起确定顺序
     }
-    AIRPORT_FIELDS = {"airportName", "airportSn", "airportModel"}
+    AIRPORT_FIELDS = {"airportGuid", "airportName", "airportSn", "airportModel"}
 
     def setUp(self):
         self.payload = load_input()
@@ -332,8 +319,8 @@ class TestInputContract(unittest.TestCase):
                 self.assertEqual(missing, set(), f"{device['jobObjectDeviceGuid']} 缺字段 {missing}")
 
     def test_airports_block(self):
-        for guid, airport in self.payload["airports"].items():
-            self.assertEqual(set(airport), self.AIRPORT_FIELDS, f"{guid} 字段不符")
+        for airport in self.payload["airports"]:
+            self.assertEqual(set(airport), self.AIRPORT_FIELDS, f"机场字段不符 {airport}")
 
     def test_capacity_is_builtin(self):
         from split_work_orders import airport_capacity

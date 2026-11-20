@@ -300,20 +300,32 @@ def airport_capacity(model: Optional[str], speciality: str, infrared: bool,
     return None
 
 
+def _index_airports(airports) -> dict:
+    """airports 输入是数组 [{airportGuid,...}]；工程内部按 guid 建索引。兼容旧的 dict。"""
+    if isinstance(airports, dict):
+        return dict(airports)
+    index: dict = {}
+    for row in airports or []:
+        guid = (row or {}).get("airportGuid")
+        if guid:
+            index[str(guid)] = row
+    return index
+
+
 class Ledgers:
     """拆单还需要的两块外部数据：机场台账 + 变电航点。
 
-    机场台账随报文传（取 airportModel）；承载力不再传，直接查内置 airport_capacity()。
+    机场台账随报文传（airports 数组，取 airportModel）；承载力不再传，直接查内置 airport_capacity()。
     设备本身也不在这里——设备就在 deviceList 上。
     """
 
-    def __init__(self, airports: dict, device_routes: Optional[list[dict]] = None):
-        self.airports = airports or {}
+    def __init__(self, airports, device_routes: Optional[list[dict]] = None):
+        self.airports = _index_airports(airports)
         self.device_routes = device_routes or []
 
     @classmethod
     def from_payload(cls, payload: dict) -> "Ledgers":
-        return cls(payload.get("airports") or {},
+        return cls(payload.get("airports") or [],
                    payload.get("deviceRoutes") or [])
 
     def route_points(self, device_guid: str, track_type: str) -> int:
@@ -356,6 +368,19 @@ def _sort_of(tower: dict):
         return (1, 0)
 
 
+def _branch_order(text) -> tuple:
+    """分支顺序：纯数字分支按数值排，其余按字符串排到数字分支之后。"""
+    text = str(text or "")
+    if text.isdigit():
+        return (0, int(text), "")
+    return (1, 0, text)
+
+
+def _device_order(tower: dict) -> tuple:
+    """towerBranchName 分组在前，组内按 sort 排（两者一起确定顺序）。"""
+    return (_branch_order(tower.get("branch_name")),) + _sort_of(tower)
+
+
 def _tower_from_device_item(item: dict, line_guid: str, index: int = 0) -> dict:
     """deviceList 单个元素 -> 内部统一行结构。缺 sort 时用数组下标保证顺序确定。"""
     guid = item.get("jobObjectDeviceGuid")
@@ -363,8 +388,8 @@ def _tower_from_device_item(item: dict, line_guid: str, index: int = 0) -> dict:
         "tower_guid": guid,
         "tower_name": item.get("jobObjectDeviceName") or guid,
         "line_guid": item.get("jobObjectGuid") or line_guid,
+        "branch_name": item.get("towerBranchName") or "",
         "sort": item.get("sort", index),
-        "is_deleted": item.get("isDeleted", 0),
         "covering_airports": item.get("coveringAirports") or "",
         "filter": item.get("filter", 0),
         "filter_td": item.get("filterTd", 0),
@@ -391,12 +416,8 @@ def query_strategy_devices(plan: dict, strategy: dict,
         tower_guid = item.get("jobObjectDeviceGuid")
         if not tower_guid:
             continue
-        tower = _tower_from_device_item(item, line_guid, index)
-        if _is_deleted(tower):
-            result.unmapped.append(tower_guid)
-            continue
-        rows.append(tower)
-    rows.sort(key=lambda t: _sort_of(t))
+        rows.append(_tower_from_device_item(item, line_guid, index))
+    rows.sort(key=_device_order)
 
     for tower in rows:
         tower_guid = tower["tower_guid"]

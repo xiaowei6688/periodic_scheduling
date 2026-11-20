@@ -377,14 +377,6 @@ class TestDocRuleGaps(unittest.TestCase):
         self.assertEqual(result.entry, "normal")
         self.assertEqual(result.new_placements[0]["start"], "2026-12-01 08:30:00")
 
-    def test_preemption_allowed_false_not_reworkable(self):
-        order = canonicalize(old_order("b", 3600, "2026-12-01 08:00:00",
-                                        "2026-12-01 09:00:00", "9"))
-        order["preemption_allowed"] = False
-        cat = categorize_old([order], *DEFAULT_WINDOW)
-        self.assertEqual(cat.reworkable, [])
-        self.assertIn(order, cat.fixed)
-
     def test_force_proposal_lists_affected_orders(self):
         window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
         old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
