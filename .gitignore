@@ -16,3 +16,4 @@ wheels/
 mock_data
 out
 build_mock.py
+.env
