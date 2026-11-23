@@ -11,3 +11,8 @@ wheels/
 
 # Virtual environments
 .venv
+.core
+.uv_cache
+mock_data
+out
+build_mock.py

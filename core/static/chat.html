@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Axis · 对话</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #202624; background: #f6f8f7; font: 15px/1.65 system-ui, sans-serif; }
+    button, textarea { font: inherit; }
+    main { max-width: 900px; height: 100dvh; margin: auto; display: flex; flex-direction: column; background: #fff; }
+    header { padding: 16px 24px; border-bottom: 1px solid #e2e8e4; display: flex; align-items: center; gap: 12px; }
+    h1 { font-size: 23px; margin: 0; }
+    #status { font-size: 13px; color: #66746c; flex: 1; }
+    #status[data-busy='true']::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #227653; animation: pulse 1.4s ease-in-out infinite; }
+    button { cursor: pointer; border: 1px solid #d4dfd8; border-radius: 6px; background: #fff; padding: 8px 14px; color: inherit; }
+    button:disabled { cursor: default; opacity: .5; }
+    #steps { padding: 10px 24px; border-bottom: 1px solid #e2e8e4; background: #fbfdfc; max-height: 180px; overflow-y: auto; }
+    #steps:empty { display: none; }
+    .step { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font-size: 13px; }
+    .step .icon { flex: none; width: 16px; text-align: center; font-weight: 700; color: #87938c; }
+    .step[data-status='in_progress'] .icon { color: #227653; }
+    .step[data-status='in_progress'] .icon { animation: pulse 1.4s ease-in-out infinite; }
+    .step[data-status='completed'] .icon { color: #227653; }
+    .step[data-status='failed'] .icon { color: #a22e2e; }
+    .step[data-status='paused'] .icon { color: #8a6a12; }
+    .step .status { flex: none; font-size: 12px; color: #87938c; }
+    .step[data-status='in_progress'] .status { color: #227653; }
+    .step[data-status='failed'] .status { color: #a22e2e; }
+    .step[data-status='paused'] .status { color: #8a6a12; }
+    .step .text { min-width: 0; }
+    .step .detail { color: #87938c; }
+    #messages { flex: 1; overflow-y: auto; padding: 24px; }
+    .message { margin: 0 0 24px; }
+    .label { color: #657269; font-size: 12px; margin-bottom: 5px; }
+    .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user .body { border-left: 3px solid #227653; padding-left: 12px; }
+    .typing .body::after { content: "▍"; color: #227653; animation: blink 1s steps(2) infinite; }
+    #activity { flex: none; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 24px; border-top: 1px solid #b7d9c6; background: #eaf5ee; color: #1c684a; font-size: 14px; font-weight: 600; }
+    #activity[hidden] { display: none; }
+    .activity-spinner { flex: none; width: 22px; height: 22px; border: 3px solid #a9d6b9; border-top-color: #16714b; border-radius: 50%; animation: spin .8s linear infinite; }
+    #activityText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .error { color: #ab3434; }
+    .agent-message > .label { color: #36443b; font-weight: 600; }
+    .agent-content { display: grid; gap: 12px; }
+    .approval-card { border: 1px solid #d7c797; background: #fffdf5; padding: 14px; border-radius: 6px; }
+    .approval-title { color: #36443b; font-weight: 600; margin-bottom: 6px; }
+    .approval-description { color: #4f5d54; }
+    .approval-card pre { margin: 8px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 ui-monospace, monospace; }
+    .approval-details { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: 5px 12px; margin: 10px 0 14px; }
+    .approval-details dt { color: #657269; }
+    .approval-details dd { margin: 0; overflow-wrap: anywhere; }
+    .approval-fields { display: grid; gap: 12px; margin: 12px 0 14px; }
+    .approval-field { display: grid; gap: 5px; }
+    .approval-field > label, .approval-field legend { color: #36443b; font-weight: 600; font-size: 13px; }
+    .approval-field select, .approval-field input[type='text'], .approval-field textarea { width: 100%; height: auto; padding: 8px; border: 1px solid #cbd8d0; border-radius: 5px; background: #fff; }
+    .approval-choice { display: flex; gap: 7px; align-items: flex-start; color: #4f5d54; font-size: 13px; font-weight: 400; }
+    .approval-choice input { margin-top: 5px; }
+    .approval-choice small { display: block; color: #87938c; }
+    .approval-actions { display: flex; gap: 8px; }
+    .approve { color: #fff; background: #227653; border-color: #227653; }
+    .reject { color: #a22e2e; border-color: #d8b3b3; }
+    dialog { border: 1px solid #d4dfd8; border-radius: 10px; padding: 0; width: min(640px, 88vw); max-height: 80vh; box-shadow: 0 18px 48px rgba(30,40,36,.25); }
+    dialog::backdrop { background: rgba(20,26,24,.35); }
+    .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #e2e8e4; position: sticky; top: 0; background: #fff; }
+    .dialog-head h2 { font-size: 17px; margin: 0; }
+    #historyClose { border: none; background: none; font-size: 22px; line-height: 1; color: #6b776f; }
+    #historyList { padding: 10px 20px 20px; overflow-y: auto; }
+    #conversationHistoryList { padding: 10px 20px 0; overflow-y: auto; }
+    #loadEarlier { margin: 12px 20px; }
+    .history-message { border-bottom: 1px solid #eef3f0; padding: 12px 0; }
+    .history-message:last-child { border-bottom: 0; }
+    .history-message .meta { color: #657269; font-size: 12px; }
+    .history-message .content { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 4px; }
+    .conversation-row { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #eef3f0; border-radius: 0; padding: 12px 0; }
+    .conversation-row .preview { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #657269; font-size: 13px; }
+    .conversation-row .meta { display: block; color: #87938c; font-size: 12px; }
+    .approval-row { border-bottom: 1px solid #eef3f0; padding: 12px 0; font-size: 13px; }
+    .approval-row:last-child { border-bottom: none; }
+    .approval-row .meta { color: #657269; }
+    .approval-row .args { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 ui-monospace, monospace; background: #f6f8f7; padding: 6px 8px; border-radius: 4px; margin-top: 6px; }
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; margin-right: 6px; }
+    .badge.pending { background: #fff3d6; color: #8a6a12; }
+    .badge.approved { background: #e4f2e9; color: #227653; }
+    .badge.rejected { background: #fbe4e4; color: #a22e2e; }
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes pulse { 50% { opacity: .35; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    form { padding: 16px 24px 24px; border-top: 1px solid #e2e8e4; display: flex; gap: 12px; align-items: flex-end; }
+    textarea { flex: 1; min-width: 0; resize: none; height: 80px; padding: 12px; border: 1px solid #cbd8d0; border-radius: 6px; outline-color: #227653; }
+    #send { background: #227653; color: #fff; border-color: #227653; }
+    button:focus-visible { outline: 2px solid #227653; outline-offset: 3px; }
+    @media (max-width: 600px) { header, #messages, form { padding: 16px; } #steps { padding: 10px 16px; } #activity { padding: 10px 16px; } header { flex-wrap: wrap; } form { gap: 8px; } }
+    @media (prefers-reduced-motion: reduce) { .typing .body::after, #status[data-busy='true']::before, .step[data-status='in_progress'] .icon, .activity-spinner { animation: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1>Axis</h1><span id="status" role="status">连接中</span><button id="new" type="button">新对话</button><button id="conversationHistory" type="button">对话历史</button><button id="history" type="button">审批历史</button></header>
+    <section id="steps" aria-label="执行进度"></section>
+    <section id="messages" aria-label="对话记录"></section>
+    <div id="activity" role="status" aria-live="polite" hidden><span class="activity-spinner" aria-hidden="true"></span><span id="activityText">正在处理</span></div>
+    <form id="form"><textarea id="input" aria-label="消息" placeholder="输入消息…" required></textarea><button id="send" type="submit" disabled>发送</button></form>
+  </main>
+  <dialog id="historyDialog">
+    <div class="dialog-head"><h2>审批历史</h2><button id="historyClose" type="button">×</button></div>
+    <div id="historyList">加载中…</div>
+  </dialog>
+  <dialog id="conversationHistoryDialog">
+    <div class="dialog-head"><div><button id="conversationBack" type="button" hidden>返回会话列表</button><h2 id="conversationHistoryTitle">对话历史</h2></div><button id="conversationHistoryClose" type="button" aria-label="关闭">×</button></div>
+    <button id="loadEarlier" type="button" hidden>加载更多</button>
+    <div id="conversationHistoryList">加载中…</div>
+  </dialog>
+  <script>
+    const messages = document.querySelector('#messages');
+    const input = document.querySelector('#input');
+    const send = document.querySelector('#send');
+    const status = document.querySelector('#status');
+    const newChat = document.querySelector('#new');
+    const steps = document.querySelector('#steps');
+    const activity = document.querySelector('#activity');
+    const activityText = document.querySelector('#activityText');
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const initialParams = new URLSearchParams(location.search);
+    let apiToken = initialParams.get('access_token') || sessionStorage.getItem('axis_api_token') || '';
+    if (initialParams.has('access_token')) {
+      sessionStorage.setItem('axis_api_token', apiToken);
+      initialParams.delete('access_token');
+      history.replaceState(null, '', `${location.pathname}${initialParams.size ? `?${initialParams}` : ''}${location.hash}`);
+    }
+    let socket, threadId = '', busy = false, finished = false, timer = null, reconnect = null;
+    const outputs = new Map();
+    const agentGroups = new Map();
+    const stepMap = new Map();
+
+    function addMessage(label, kind = '') {
+      const article = document.createElement('article');
+      article.className = `message ${kind}`;
+      const title = document.createElement('div');
+      title.className = 'label'; title.textContent = label;
+      const body = document.createElement('div'); body.className = 'body';
+      article.append(title, body); messages.append(article);
+      return { article, body, pending: [] };
+    }
+    function getAgentGroup(agent, displayName) {
+      const key = agent || `display:${displayName || '助手'}`;
+      if (agentGroups.has(key)) return agentGroups.get(key);
+      const article = document.createElement('article'); article.className = 'message agent-message';
+      const label = document.createElement('div'); label.className = 'label'; label.textContent = displayName || agent || '助手';
+      const content = document.createElement('div'); content.className = 'agent-content';
+      article.append(label, content); messages.append(article);
+      const group = { article, content };
+      agentGroups.set(key, group);
+      return group;
+    }
+    function addAgentOutput(agent, displayName) {
+      const group = getAgentGroup(agent, displayName);
+      const body = document.createElement('div'); body.className = 'body';
+      group.content.append(body); group.article.classList.add('typing');
+      return { article: group.article, body, pending: [] };
+    }
+    function scrollDown() { messages.scrollTop = messages.scrollHeight; }
+    function showActivity(text = '正在处理') { activityText.textContent = text; activity.hidden = false; }
+    function hideActivity() { activity.hidden = true; }
+    function clearSteps() {
+      stepMap.clear();
+      steps.replaceChildren();
+    }
+    const stepIcons = { in_progress: '▸', completed: '✓', failed: '✗', paused: '…' };
+    const stepLabels = { in_progress: '进行中', completed: '完成', failed: '失败', paused: '等待确认' };
+    function renderStep(event) {
+      let row = stepMap.get(event.id);
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'step';
+        steps.append(row);
+        stepMap.set(event.id, row);
+      }
+      row.replaceChildren();
+      row.dataset.status = event.status || 'in_progress';
+      const icon = document.createElement('span'); icon.className = 'icon';
+      icon.textContent = stepIcons[event.status] || '▸';
+      const statusLabel = document.createElement('span'); statusLabel.className = 'status';
+      statusLabel.textContent = stepLabels[event.status] || event.status;
+      const text = document.createElement('span'); text.className = 'text';
+      const entries = [
+        { cls: '', value: event.title },
+        { cls: 'detail', value: event.detail },
+      ].filter((entry) => entry.value);
+      const children = entries.map((entry, index) => {
+        const span = document.createElement('span');
+        span.className = entry.cls;
+        span.textContent = (index > 0 ? ' · ' : '') + entry.value;
+        return span;
+      });
+      text.append(...children);
+      row.append(icon, statusLabel, text);
+      if (event.status === 'in_progress') showActivity(event.title || '正在处理');
+      else if (activityText.textContent === event.title) showActivity('正在继续处理');
+      steps.scrollTop = steps.scrollHeight;
+      scrollDown();
+    }
+    function setBusy(value) {
+      busy = value; input.disabled = value; newChat.disabled = value;
+      send.disabled = value || socket?.readyState !== WebSocket.OPEN;
+      status.dataset.busy = String(value);
+    }
+    function animate() {
+      const follow = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 100;
+      let pending = false;
+      for (const item of outputs.values()) {
+        if (item.pending.length) {
+          item.body.textContent += item.pending.splice(0, reducedMotion ? item.pending.length : 2).join('');
+          pending ||= item.pending.length > 0;
+        }
+      }
+      if (follow) scrollDown();
+      if (finished && !pending) {
+        clearInterval(timer); timer = null;
+        for (const item of outputs.values()) item.article.classList.remove('typing');
+        setBusy(false); input.focus();
+        if (socket?.readyState === WebSocket.OPEN) status.textContent = '已连接';
+      }
+    }
+    function finish() { hideActivity(); finished = true; if (!timer) animate(); }
+    function showError(text) { addMessage('提示', 'error').body.textContent = text; scrollDown(); }
+    function showApproval(event) {
+      const approvalTitle = event.display_title || `需要人工审批：${event.tool_name || '工具调用'}`;
+      const owner = event.agent_display_name || event.agent || '';
+      const group = getAgentGroup(event.agent || `approval:${event.approval_id}`, owner || '审批');
+      const card = document.createElement('div'); card.className = 'approval-card';
+      const title = document.createElement('div'); title.className = 'approval-title'; title.textContent = approvalTitle;
+      const description = document.createElement('div'); description.className = 'approval-description';
+      description.textContent = event.description || event.tool_name;
+      card.append(title, description);
+      const displayArguments = event.display_arguments;
+      let detail;
+      if (displayArguments && typeof displayArguments === 'object' && !Array.isArray(displayArguments)) {
+        detail = document.createElement('dl'); detail.className = 'approval-details';
+        for (const [labelText, valueText] of Object.entries(displayArguments)) {
+          const label = document.createElement('dt'); label.textContent = labelText;
+          const value = document.createElement('dd');
+          value.textContent = typeof valueText === 'string' ? valueText : JSON.stringify(valueText);
+          detail.append(label, value);
+        }
+      } else {
+        detail = document.createElement('pre');
+        detail.textContent = JSON.stringify(event.arguments, null, 2);
+      }
+      const fieldControls = [];
+      if (Array.isArray(event.fields) && event.fields.length) {
+        const fields = document.createElement('div'); fields.className = 'approval-fields';
+        for (const field of event.fields) {
+          const wrapper = document.createElement('div'); wrapper.className = 'approval-field';
+          const label = document.createElement('label');
+          label.textContent = (field.label || field.name) + (field.required ? '（必填）' : '');
+          let control;
+          if (field.type === 'text') {
+            control = document.createElement('textarea'); control.rows = 2; control.placeholder = field.placeholder || '';
+          } else if (field.type === 'select') {
+            control = document.createElement('select');
+            const empty = document.createElement('option'); empty.value = ''; empty.textContent = field.placeholder || '请选择'; control.append(empty);
+            for (const option of field.options || []) {
+              const item = document.createElement('option'); item.value = option.value; item.textContent = option.label; item.title = option.description || ''; control.append(item);
+            }
+          } else {
+            control = document.createElement('div');
+            for (const option of field.options || []) {
+              const choice = document.createElement('label'); choice.className = 'approval-choice';
+              const input = document.createElement('input'); input.type = field.type === 'multi_select' ? 'checkbox' : 'radio'; input.name = event.approval_id + ':' + field.name; input.value = option.value;
+              const text = document.createElement('span'); text.textContent = option.label;
+              if (option.description) { const note = document.createElement('small'); note.textContent = option.description; text.append(note); }
+              choice.append(input, text); control.append(choice);
+            }
+          }
+          control.dataset.field = field.name; control.dataset.required = String(field.required);
+          wrapper.append(label, control); fields.append(wrapper); fieldControls.push({ field, control });
+        }
+        card.append(fields);
+      }
+      const actions = document.createElement('div'); actions.className = 'approval-actions';
+      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = '通过';
+      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = '拒绝';
+      actions.append(approve, reject); card.append(detail, actions); group.content.append(card); scrollDown();
+      const collectValues = () => {
+        const values = {};
+        for (const { field, control } of fieldControls) {
+          let value;
+          if (field.type === 'text' || field.type === 'select') value = control.value;
+          else if (field.type === 'multi_select') value = [...control.querySelectorAll('input:checked')].map((item) => item.value);
+          else value = control.querySelector('input:checked')?.value || '';
+          if (field.required && (value === '' || (Array.isArray(value) && !value.length))) {
+            control.closest('.approval-field').querySelector('label').style.color = '#a22e2e';
+            return null;
+          }
+          values[field.name] = value;
+        }
+        return values;
+      };
+      const decide = (action) => {
+        const values = action === 'approve' ? collectValues() : {};
+        if (values === null) return;
+        approve.disabled = reject.disabled = true;
+        finished = false; setBusy(true); status.textContent = '正在恢复执行'; showActivity('正在恢复执行');
+        socket.send(JSON.stringify({
+          type: 'approval_decision', approval_id: event.approval_id,
+          thread_id: event.thread_id, turn_id: event.turn_id, action, values
+        }));
+      };
+      approve.onclick = () => decide('approve'); reject.onclick = () => decide('reject');
+    }
+    function connect() {
+      clearTimeout(reconnect);
+      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/v1/chat/ws${apiToken ? `?access_token=${encodeURIComponent(apiToken)}` : ''}`;
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => { status.textContent = '已连接'; setBusy(busy); };
+      socket.onmessage = ({data}) => {
+        const event = JSON.parse(data);
+        if (event.thread_id) threadId = event.thread_id;
+        if (event.type === 'start') status.textContent = '正在生成';
+        if (event.type === 'resumed') status.textContent = '正在恢复执行';
+        if (event.type === 'step') renderStep(event);
+        if (event.type === 'delta') {
+          showActivity('正在生成回复');
+          if (!outputs.has(event.message_id)) outputs.set(event.message_id, addAgentOutput(event.agent, event.agent_display_name || '助手'));
+          outputs.get(event.message_id).pending.push(...Array.from(event.text));
+          if (!timer) timer = setInterval(animate, 20);
+        }
+        if (event.type === 'approval_required') { hideActivity(); status.textContent = '等待审批'; status.dataset.busy = 'false'; showApproval(event); }
+        if (event.type === 'done') finish();
+        if (event.type === 'error') { showError(event.message); finish(); }
+      };
+      socket.onclose = () => {
+        status.textContent = '连接已断开，正在重连';
+        if (busy && !finished) { showError('连接中断，请重新发送消息'); finish(); }
+        send.disabled = true; reconnect = setTimeout(connect, 1500);
+      };
+      socket.onerror = () => { status.textContent = '连接异常'; };
+    }
+    document.querySelector('#form').onsubmit = (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || busy || socket?.readyState !== WebSocket.OPEN) return;
+      addMessage('你', 'user').body.textContent = text; input.value = '';
+      outputs.clear(); agentGroups.clear(); clearSteps(); finished = false; setBusy(true); showActivity(); scrollDown();
+      timer = setInterval(animate, 20);
+      socket.send(JSON.stringify({message: text, thread_id: threadId}));
+    };
+    input.onkeydown = (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); document.querySelector('#form').requestSubmit(); }
+    };
+    newChat.onclick = () => { threadId = crypto.randomUUID(); messages.replaceChildren(); outputs.clear(); agentGroups.clear(); clearSteps(); input.focus(); };
+    const conversationHistoryBtn = document.querySelector('#conversationHistory');
+    const conversationHistoryDialog = document.querySelector('#conversationHistoryDialog');
+    const conversationHistoryClose = document.querySelector('#conversationHistoryClose');
+    const conversationHistoryList = document.querySelector('#conversationHistoryList');
+    const loadEarlier = document.querySelector('#loadEarlier');
+    const conversationBack = document.querySelector('#conversationBack');
+    const conversationHistoryTitle = document.querySelector('#conversationHistoryTitle');
+    let historyBefore = null;
+    let conversationMode = 'sessions';
+    function renderConversationMessage(message, prepend = false) {
+      const row = document.createElement('article'); row.className = 'history-message';
+      const meta = document.createElement('div'); meta.className = 'meta';
+      const speaker = message.role === 'user' ? '你' : (message.agent_display_name || '助手');
+      const time = message.created_at ? new Date(message.created_at).toLocaleString() : '';
+      meta.textContent = `${speaker}${time ? ` · ${time}` : ''}`;
+      const content = document.createElement('div'); content.className = 'content'; content.textContent = message.content || '';
+      row.append(meta, content);
+      if (prepend) conversationHistoryList.prepend(row); else conversationHistoryList.append(row);
+    }
+    async function loadConversationPage(replace = false) {
+      if (!threadId) return;
+      const query = new URLSearchParams({limit: '50'});
+      if (!replace && historyBefore) query.set('before', historyBefore);
+      loadEarlier.disabled = true;
+      try {
+        const response = await fetch(`/v1/threads/${encodeURIComponent(threadId)}/messages?${query}`, {
+          headers: apiToken ? {Authorization: `Bearer ${apiToken}`} : {},
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
+        const page = await response.json();
+        if (replace) {
+          conversationHistoryList.replaceChildren();
+          messages.replaceChildren(); outputs.clear(); agentGroups.clear(); clearSteps();
+          for (const message of page.messages) {
+            const speaker = message.role === 'user' ? '你' : (message.agent_display_name || '助手');
+            addMessage(speaker, message.role === 'user' ? 'user' : '').body.textContent = message.content || '';
+          }
+          scrollDown();
+        }
+        const pageMessages = replace ? page.messages : [...page.messages].reverse();
+        for (const message of pageMessages) renderConversationMessage(message, !replace);
+        historyBefore = page.next_before;
+        loadEarlier.hidden = !page.has_more;
+        if (replace && page.messages.length === 0) conversationHistoryList.textContent = '当前会话暂无历史消息。';
+      } catch (error) {
+        if (replace) conversationHistoryList.replaceChildren();
+        conversationHistoryList.textContent = `加载失败：${error.message || error}`;
+        loadEarlier.hidden = true;
+      } finally { loadEarlier.disabled = false; }
+    }
+    async function loadConversationList(replace = false) {
+      const query = new URLSearchParams({limit: '50'});
+      if (!replace && historyBefore) query.set('before', historyBefore);
+      loadEarlier.disabled = true;
+      try {
+        const response = await fetch(`/v1/threads?${query}`, {
+          headers: apiToken ? {Authorization: `Bearer ${apiToken}`} : {},
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
+        const page = await response.json();
+        if (replace) conversationHistoryList.replaceChildren();
+        for (const session of page.conversations) {
+          const row = document.createElement('button'); row.type = 'button'; row.className = 'conversation-row';
+          const preview = document.createElement('span'); preview.className = 'preview';
+          preview.textContent = session.last_message || '（空消息）';
+          const meta = document.createElement('span'); meta.className = 'meta';
+          meta.textContent = `${new Date(session.last_message_at).toLocaleString()} · ${session.message_count} 条消息 · ${session.thread_id.slice(0, 8)}`;
+          row.append(preview, meta); row.onclick = () => selectConversation(session.thread_id);
+          conversationHistoryList.append(row);
+        }
+        historyBefore = page.next_before;
+        loadEarlier.hidden = !page.has_more;
+        if (replace && page.conversations.length === 0) conversationHistoryList.textContent = '暂无历史会话。';
+      } catch (error) {
+        if (replace) conversationHistoryList.replaceChildren();
+        conversationHistoryList.textContent = `加载失败：${error.message || error}`;
+        loadEarlier.hidden = true;
+      } finally { loadEarlier.disabled = false; }
+    }
+    function selectConversation(selectedThreadId) {
+      threadId = selectedThreadId;
+      conversationMode = 'messages'; historyBefore = null;
+      conversationBack.hidden = false; conversationHistoryTitle.textContent = '会话消息';
+      conversationHistoryList.textContent = '加载中…'; loadEarlier.hidden = true;
+      loadConversationPage(true);
+    }
+    conversationHistoryBtn.onclick = async () => {
+      conversationMode = 'sessions'; conversationBack.hidden = true;
+      conversationHistoryTitle.textContent = '对话历史';
+      historyBefore = null; conversationHistoryList.textContent = '加载中…';
+      loadEarlier.hidden = true; conversationHistoryDialog.showModal();
+      await loadConversationList(true);
+    };
+    loadEarlier.onclick = () => conversationMode === 'sessions'
+      ? loadConversationList(false)
+      : loadConversationPage(false);
+    conversationBack.onclick = () => {
+      conversationMode = 'sessions'; historyBefore = null;
+      conversationBack.hidden = true; conversationHistoryTitle.textContent = '对话历史';
+      conversationHistoryList.textContent = '加载中…'; loadEarlier.hidden = true;
+      loadConversationList(true);
+    };
+    conversationHistoryClose.onclick = () => conversationHistoryDialog.close();
+    const historyBtn = document.querySelector('#history');
+    const historyDialog = document.querySelector('#historyDialog');
+    const historyList = document.querySelector('#historyList');
+    const historyClose = document.querySelector('#historyClose');
+    const statusText = { pending: '待审批', approved: '已通过', rejected: '已拒绝' };
+    async function loadHistory() {
+      historyList.textContent = '加载中…'; historyDialog.showModal();
+      try {
+        const query = new URLSearchParams({limit: '200'});
+        if (threadId) query.set('thread_id', threadId);
+        const response = await fetch(`/v1/approvals?${query}`, {
+          headers: apiToken ? {Authorization: `Bearer ${apiToken}`} : {},
+        });
+        const records = await response.json();
+        historyList.replaceChildren();
+        if (!Array.isArray(records) || records.length === 0) { historyList.textContent = '暂无审批记录。'; return; }
+        for (const record of records) {
+          const row = document.createElement('div'); row.className = 'approval-row';
+          const badge = document.createElement('span');
+          badge.className = `badge ${record.status || 'pending'}`;
+          badge.textContent = statusText[record.status] || record.status || '待审批';
+          const meta = document.createElement('span'); meta.className = 'meta';
+          const time = record.created_at ? new Date(record.created_at).toLocaleString() : '';
+          meta.textContent = ` · ${record.tool_name} · ${time}`;
+          if (record.thread_id) meta.textContent += ` · 会话 ${record.thread_id.slice(0, 8)}`;
+          const head = document.createElement('div'); head.append(badge, meta);
+          if (record.comment) { const comment = document.createElement('div'); comment.textContent = `意见：${record.comment}`; row.append(comment); }
+          const args = document.createElement('div'); args.className = 'args';
+          args.textContent = JSON.stringify(record.arguments || {}, null, 2);
+          row.append(head, args); historyList.append(row);
+        }
+      } catch (error) {
+        historyList.textContent = `加载失败：${error.message || error}`;
+      }
+    }
+    historyBtn.onclick = loadHistory;
+    historyClose.onclick = () => historyDialog.close();
+    connect();
+  </script>
+</body>
+</html>

@@ -22,7 +22,6 @@ from rework_algorithm import (
     iter_days,
     largest_remainder_split,
     parse_time_windows,
-    preferred_airport,
     rework,
     schedule_manual,
 )
@@ -149,24 +148,6 @@ class TestLayer2(unittest.TestCase):
         cat = categorize_old([inside, outside], *DEFAULT_WINDOW)
         self.assertEqual([o["guid"] for o in cat.reworkable], ["in"])
         self.assertEqual(cat.fixed, [])
-
-    def test_unplaced_reason_not_occupied(self):
-        """已标记「未能排下」的排队工单，保留窗口不是真实占用（文档2 §六）。"""
-        sched = Scheduler(*DEFAULT_WINDOW)
-        order = canonicalize(old_order("x", 3600, "2026-12-01 08:00:00",
-                                       "2026-12-01 09:00:00", "9"))
-        order["schedule_reason"] = "超量均摊；未能排下"
-        _occupy_existing(sched, order, [])
-        self.assertEqual(sched.calendar("AP").occupied("2026-12-01"), [])
-
-    def test_failed_reason_but_not_status9_still_occupied(self):
-        """非 9 状态带「未能排下」字样仍是真实占用（对齐 Java 6572 的 status==9 限定）。"""
-        sched = Scheduler(*DEFAULT_WINDOW)
-        order = canonicalize(old_order("y", 3600, "2026-12-01 08:00:00",
-                                       "2026-12-01 09:00:00", "8"))
-        order["schedule_reason"] = "超量均摊；未能排下"
-        _occupy_existing(sched, order, [])
-        self.assertEqual(sched.calendar("AP").occupied("2026-12-01"), [(28800, 32400)])
 
     def test_priority_smaller_window_first(self):
         """同等条件下，原始时间窗口越小优先级越高（文档2 §四）。"""
@@ -301,23 +282,8 @@ class TestFinalOutput(unittest.TestCase):
         result = rework(new, old, *window, enforce_quota=False)
         out = result.to_dict()
         self.assertEqual(set(out), {"entry", "window", "new", "update",
-                                    "still_unplaced_old", "unplaced_new",
+                                    "unplaced_new",
                                     "force_proposals", "rework_chain", "warnings"})
-
-    def test_still_unplaced_old_listed_not_in_groups(self):
-        """此前「未能排下」的旧单：不占位、不重排，显式列出，但不进 new/update 两组。"""
-        window = ("2026-12-01 00:00:00", "2026-12-10 23:59:59")
-        old = [old_order("u", 3600, "2026-12-01 08:00:00", "2026-12-01 09:00:00", "9",
-                         schedule_reason="超量均摊；未能排下")]
-        new = [new_order("C", 7200, "2026-12-02 00:00:00", "2026-12-02 23:59:59")]
-        result = rework(new, old, *window, enforce_quota=False)
-        self.assertEqual([o["work_order_guid"] for o in result.still_unplaced_old], ["u"])
-        new_guids = {o.get("work_order_guid") for o in result.new_orders_out}
-        update_guids = {o.get("work_order_guid") for o in result.update_orders}
-        self.assertNotIn("u", new_guids)
-        self.assertNotIn("u", update_guids)
-        # 它不占日历，新单也不受影响
-        self.assertEqual(result.entry, "normal")
 
     def test_new_group_carries_scheduled_times(self):
         new, old, window = build_cbd_scenario()
@@ -404,18 +370,9 @@ class TestDocRuleGaps(unittest.TestCase):
 
         ok = manual("m1")
         status8 = manual("m2", status="8")
-        blocked = manual("m3", reason="补巡待确认排班")
-        got = schedule_manual([ok, status8, blocked], *DEFAULT_WINDOW)
-        self.assertEqual([m["work_order_guid"] for m in got], ["m1"])
-
-    def test_preferred_airport_common_first(self):
-        details = [{"coveringAirports": "ap-x,ap-y"}, {"coveringAirports": "ap-x"}]
-        self.assertEqual(preferred_airport(details, "ap-old"), "ap-x")
-        # 无共同首位机场 → 不能改选次优，沿用原机场
-        self.assertEqual(preferred_airport(
-            [{"coveringAirports": "ap-x"}, {"coveringAirports": "ap-z"}], "ap-old"), "ap-old")
-        # 明细缺失 → 沿用原机场
-        self.assertEqual(preferred_airport(None, "ap-old"), "ap-old")
+        normal = manual("m3")
+        got = schedule_manual([ok, status8, normal], *DEFAULT_WINDOW)
+        self.assertEqual([m["work_order_guid"] for m in got], ["m1", "m3"])
 
 
 if __name__ == "__main__":

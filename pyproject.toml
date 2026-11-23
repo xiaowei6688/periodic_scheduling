@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.165.0",
+    "langchain>=1.5.2",
+    "langchain-core>=1.8.4",
+    "langchain-mcp-adapters>=0.3.2",
+    "langchain-openai>=1.8.5",
+    "langgraph>=1.2.24",
+    "pydantic>=2.14.4",
+    "pydantic-settings>=2.16.3",
+    "uvicorn>=0.54.0",
+]

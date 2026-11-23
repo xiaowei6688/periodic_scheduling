@@ -35,18 +35,100 @@ PROFESSION_ZH = {"tms": "输电", "dms": "配电", "sms": "变电"}
 WORK_NATURE_ZH = {"1": "本体", "101": "本体", "2": "通道"}
 INFRARED_SUBS = {"s-hwxs", "t-hwxs", "d-hwxs"}
 
+# ---- 输出结构：专业排序（变电1/输电2/配电3）与 entry 名映射 ----
+SORT_TYPE = {"sms": "1", "tms": "2", "dms": "3"}
+ENTRY_MAP = {"normal": "normal", "insert_rework": "insertRework", "force_insert": "forceInsert"}
 
-def _attach_details(new_orders: list[dict], details: list[dict]) -> list[dict]:
-    """把拆分明细挂到对应新工单上，保持工单自包含。"""
-    detail_map: dict[str, list[dict]] = defaultdict(list)
-    for detail in details:
-        detail_map[detail["work_order_guid"]].append(detail)
+
+def _detail_items(order: dict, detail_map: dict) -> list[dict]:
+    """新工单明细：设备集（不是全计划设备）。"""
+    plan = order.get("plan") or {}
     out = []
-    for order in new_orders:
-        item = dict(order)
-        item["details"] = detail_map.get(item.get("work_order_guid"), [])
-        out.append(item)
+    for detail in detail_map.get(order.get("work_order_guid"), []):
+        device = detail.get("device") or {}
+        out.append({
+            "workOrderGuid": order.get("work_order_guid"),
+            "parentDeviceGuid": device.get("jobObjectGuid") or plan.get("jobObjectGuid"),
+            "deviceGuid": device.get("jobObjectDeviceGuid"),
+            "deviceType": device.get("speciality") or plan.get("speciality"),
+            "workNature": plan.get("workNature"),
+            "deviceName": device.get("jobObjectDeviceName"),
+            "parentDeviceName": device.get("jobObjectName") or plan.get("jobObject"),
+        })
     return out
+
+
+def _work_obj_name(plan: dict, details: list[dict]) -> str:
+    """规则：线路名称:起始杆名称-结束杆名称。"""
+    line = plan.get("jobObject") or ""
+    names = [d["deviceName"] for d in details if d.get("deviceName")]
+    if not names:
+        return line
+    if len(names) == 1:
+        return f"{line}:{names[0]}"
+    return f"{line}:{names[0]}-{names[-1]}"
+
+
+def _new_order_item(order: dict, detail_map: dict, airports: dict) -> dict:
+    """按新版输出结构，把拆单侧 snake_case 工单转成 camelCase 展示结构。"""
+    plan = order.get("plan") or {}
+    airport = airports.get(order.get("cycle_airport_guid")) if order.get("cycle_airport_guid") else {}
+    details = _detail_items(order, detail_map)
+    speciality = plan.get("speciality") or ""
+    return {
+        "workOrderGuid": order.get("work_order_guid"),
+        "workOrderNo": order.get("work_order_no"),
+        "planGuid": order.get("plan_guid") or plan.get("planGuid"),
+        "inspectionMethod": order.get("inspection_method"),
+        "orderSource": order.get("order_source") or "5",
+        "workOrderStatus": order.get("work_order_status"),
+        "cycleAirportGuid": order.get("cycle_airport_guid"),
+        "cycleParentDeviceGuid": plan.get("jobObjectGuid"),
+        "snCode": airport.get("airportSn"),
+        "equipName": airport.get("airportName"),
+        "workObjName": _work_obj_name(plan, details),
+        "professionalCategory": speciality,
+        "sortType": SORT_TYPE.get(speciality, ""),
+        "cycleCnt": plan.get("cycleCnt"),
+        "oneDay": plan.get("oneDay"),
+        "cycleVoltageLevel": plan.get("voltageLevel"),
+        "workNature": plan.get("workNature"),
+        "workNatureSub": plan.get("workNatureSub"),
+        "parentDeviceNum": order.get("parent_device_num"),
+        "secondNum": order.get("second_num"),
+        "capacityLimit": order.get("capacity_limit"),
+        "scheduleStatus": order.get("schedule_status"),
+        "scheduleReason": order.get("schedule_reason"),
+        "preStartDate": order.get("pre_start_date"),
+        "cycleStartDate": plan.get("cycleStartDate"),
+        "preEndDate": order.get("pre_end_date"),
+        "cycleEndDate": plan.get("cycleEndDate"),
+        "timePeriod": order.get("time_period"),
+        "startDate": order.get("start_date"),
+        "endDate": order.get("end_date"),
+        "projectId": plan.get("projectId"),
+        "regionCode": plan.get("areaCode"),
+        "trackType": plan.get("trackType"),
+        "projectName": plan.get("projectName"),
+        "details": details,
+    }
+
+
+def _force_proposal_out(proposal) -> dict:
+    return {
+        "orderGuid": proposal.order_guid,
+        "workOrderNo": proposal.work_order_no,
+        "reason": proposal.reason,
+        "protectedHolders": proposal.protected_holders,
+        "affectedOrders": [
+            {"workOrderGuid": a.get("work_order_guid"),
+             "workOrderNo": a.get("work_order_no"),
+             "planGuid": a.get("plan_guid"),
+             "relation": a.get("relation")}
+            for a in proposal.affected_orders
+        ],
+        "updateProposals": proposal.update_proposals,
+    }
 
 
 def _impact_chains(payload: dict, pending, result) -> dict:
@@ -94,6 +176,8 @@ def _impact_chains(payload: dict, pending, result) -> dict:
             "workOrderStatus": raw.get("workOrderStatus"),
             "startDate": raw.get("startDate"),
             "endDate": raw.get("endDate"),
+            "preStartDate": raw.get("startDate"),
+            "preEndDate": raw.get("endDate"),
             "firstWorkOrderNo": node_nos[0] if len(node_nos) >= 1 else None,
             "secondWorkOrderNo": node_nos[1] if len(node_nos) >= 2 else None,
             "thirdWorkOrderNo": node_nos[2] if len(node_nos) >= 3 else None,
@@ -114,10 +198,14 @@ def _impact_chains(payload: dict, pending, result) -> dict:
 
 def _build_output(payload: dict, pending, result) -> dict:
     """按输入报文格式回组：工单按计划嵌套到 planList，旧工单平级另放。"""
-    new_orders = _attach_details(result.new_orders_out, pending.details)
+    airports = {str(a.get("airportGuid")): a for a in payload.get("airports") or []}
+    detail_map: dict[str, list[dict]] = defaultdict(list)
+    for detail in pending.details:
+        detail_map[detail["work_order_guid"]].append(detail)
+
     plan_orders: dict[int, list[dict]] = defaultdict(list)
-    for order in new_orders:
-        plan_orders[id(order.get("plan"))].append(order)
+    for order in result.new_orders_out:
+        plan_orders[id(order.get("plan"))].append(_new_order_item(order, detail_map, airports))
 
     strategies_out = []
     total_plans = 0
@@ -145,13 +233,17 @@ def _build_output(payload: dict, pending, result) -> dict:
     plan_set_out["planPackageCount"] = len(strategies_out)
     plan_set_out["planCount"] = total_plans
     plan_set_out["workOrderCount"] = total_orders
+    plan_set_out["workOrderCountAir"] = sum(
+        1 for o in result.new_orders_out if o.get("inspection_method") == "1")
+    plan_set_out["workOrderCountUser"] = sum(
+        1 for o in result.new_orders_out if o.get("inspection_method") == "2")
 
     # ---- 旧工单回组：换成带计划信息、中文枚举、影响轮次与结果的展示结构 ----
     plan_by_guid = {}
     for strategy in payload.get("planStrategyList") or []:
         for plan in strategy.get("planList") or []:
             plan_by_guid[plan.get("planGuid")] = plan
-    plan_set_name = (payload.get("planSetInfo") or {}).get("planSetName")
+    payload_plan_set_name = (payload.get("planSetInfo") or {}).get("planSetName")
 
     new_guids = {o.get("work_order_guid") for o in result.new_orders_out}
     moved_meta: dict[str, dict] = {}
@@ -169,7 +261,6 @@ def _build_output(payload: dict, pending, result) -> dict:
         }
         round_no += 1
     continues = {step.preempted_by for step in result.rework_steps}
-    still_unplaced = {u["work_order_guid"] for u in result.still_unplaced_old}
 
     update_map = {u["work_order_guid"]: u for u in result.update_orders}
     old_orders_out = []
@@ -180,6 +271,9 @@ def _build_output(payload: dict, pending, result) -> dict:
         update = update_map.get(guid)
         meta = moved_meta.get(guid)
         work_nature_sub = raw.get("workNatureSub") or ""
+        # 旧工单接口会直接返回 planNo / planSetName，优先用回传值，兼容老数据回退匹配
+        plan_set_name = raw.get("planSetName") or payload_plan_set_name
+        plan_no = raw.get("planNo") or plan.get("planNo")
 
         old_start = (meta or {}).get("old_start") or raw.get("startDate")
         old_end = (meta or {}).get("old_end") or raw.get("endDate")
@@ -198,10 +292,6 @@ def _build_output(payload: dict, pending, result) -> dict:
             desc_type = meta["descType"]
             result_txt = "已排妥"
             result_desc = "继续影响下一张旧单" if guid in continues else "已排妥"
-        elif guid in still_unplaced:
-            desc = ""
-            desc_type = ""
-            result_txt = result_desc = "未排妥"
         else:
             desc = ""
             desc_type = ""
@@ -215,7 +305,7 @@ def _build_output(payload: dict, pending, result) -> dict:
             "frequency": plan.get("inspectionFrequency"),
             "workObjName": raw.get("equipName") or plan.get("jobObject"),
             "planGuid": raw.get("planGuid"),
-            "planNo": plan.get("planNo"),
+            "planNo": plan_no,
             "workOrderGuid": guid,
             "workOrderNo": raw.get("workOrderNo"),
             "professionalCategoryZh": PROFESSION_ZH.get(raw.get("professionalCategory"),
@@ -245,8 +335,8 @@ def _build_output(payload: dict, pending, result) -> dict:
         "planStrategyList": strategies_out,
         "oldWorkOrders": old_orders_out,
         "impactChains": _impact_chains(payload, pending, result),
-        "entry": result.entry,
-        "forceProposals": [p.__dict__ for p in result.force_proposals],
+        "entry": ENTRY_MAP.get(result.entry, result.entry),
+        "forceProposals": [_force_proposal_out(p) for p in result.force_proposals],
         "warnings": result.warnings,
     }
 

@@ -64,7 +64,6 @@ SMS_VISIBLE_START = 8 * 3600 + 30 * 60
 
 # ---- 人工工单平台正式规则（FR08；口径确认前先用平台既有值）----
 MANUAL_ORDER_SOURCE = "5"
-MANUAL_BLOCKED_REASON = "补巡待确认排班"
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
 DAY_FMT = "%Y-%m-%d"
@@ -148,40 +147,15 @@ def effective_time_period(order: dict) -> str:
 # ================================================================ 规整为统一结构
 
 
-def preferred_airport(device_details: Any, fallback: Optional[str]) -> Optional[str]:
-    """旧单可调整机场：台账各设备必须**共同**首位机场才可换，否则沿用原机场（临时§六）。
-
-    明细缺失、无覆盖、或首位机场不一致 → 返回 fallback（兼容沿用原机场，且不视为已确认最优）。
-    """
-    first: Optional[str] = None
-    for detail in device_details or []:
-        if not isinstance(detail, dict):
-            return fallback
-        coverage = detail.get("coveringAirports") or detail.get("covering_airports") or ""
-        airports = [x.strip() for x in str(coverage).split(",") if x.strip()]
-        if not airports:
-            return fallback
-        if first is None:
-            first = airports[0]
-        elif first != airports[0]:
-            return fallback
-    return first or fallback
-
-
 def canonicalize(order: dict) -> dict:
     """把新/旧两种工单结构规整成同一种内部结构。"""
     if order.get("source") == "existing":
         raw = order.get("raw") or {}
-        original_airport = order.get("cycle_airport_guid")
-        airport = preferred_airport(raw.get("workOrderDetails") or raw.get("details"),
-                                    original_airport)
         return {
             "guid": order.get("work_order_guid"),
             "work_order_no": order.get("work_order_no"),
             "plan_guid": order.get("plan_guid"),
-            "airport": airport,
-            "original_airport": original_airport,
-            "airport_confirmed": airport != original_airport,
+            "airport": order.get("cycle_airport_guid"),
             "seconds": int(order.get("second_num") or 0),
             "limit": order.get("capacity_limit"),
             "inspection": str(order.get("inspection_method") or INSPECTION_AIRPORT),
@@ -197,8 +171,6 @@ def canonicalize(order: dict) -> dict:
             "source": "existing",
             "status": str(order.get("work_order_status") or ""),
             "order_source": raw.get("orderSource"),
-            "schedule_reason": order.get("schedule_reason")
-            or raw.get("scheduleReason"),
             "raw": order,
         }
     plan = order.get("plan") or {}
@@ -207,8 +179,6 @@ def canonicalize(order: dict) -> dict:
         "work_order_no": order.get("work_order_no"),
         "plan_guid": order.get("plan_guid"),
         "airport": order.get("cycle_airport_guid"),
-        "original_airport": order.get("cycle_airport_guid"),
-        "airport_confirmed": False,
         "seconds": int(order.get("second_num") or 0),
         "limit": order.get("capacity_limit"),
         "inspection": str(order.get("inspection_method") or INSPECTION_AIRPORT),
@@ -224,7 +194,6 @@ def canonicalize(order: dict) -> dict:
         "source": "new",
         "status": order.get("work_order_status"),
         "order_source": order.get("order_source"),
-        "schedule_reason": order.get("schedule_reason"),
         "raw": order,
     }
 
@@ -463,13 +432,7 @@ def categorize_old(orders: list[dict], window_start: str, window_end: str) -> Ca
 
 
 def _occupy_existing(sched: Scheduler, order: dict, warnings: list[str]) -> None:
-    """把已有工单的当前起止时间放进日历（L5 共享占用 + 补齐占用）。
-
-    仅「排队中(9) 且已标记未能排下」的工单跳过：其保留窗口不是真实执行占用
-    （文档2 §六 / Java 6572-6573，限定 workOrderStatus == 9）。
-    """
-    if order.get("status") == STATUS_QUEUED and "未能排下" in (order.get("schedule_reason") or ""):
-        return
+    """把已有工单的当前起止时间放进日历（L5 共享占用 + 补齐占用）。"""
     start = parse_dt(order.get("start"))
     end = parse_dt(order.get("end"))
     if start is None or end is None:
@@ -680,7 +643,7 @@ def week_window(day: str, month_days: list[str], window_start: str, window_end: 
 def _manual_eligible(order: dict) -> bool:
     """人工入组筛选（FR08 平台正式规则；口径未确认前按平台既有值）。
 
-    普通人工：来源5、巡检方式2、状态9、排除「补巡待确认排班」。
+    普通人工：来源5、巡检方式2、状态9。
     """
     if order.get("inspection") != INSPECTION_MANUAL:
         return False
@@ -688,8 +651,6 @@ def _manual_eligible(order: dict) -> bool:
         return False
     source = order.get("order_source")
     if source is not None and str(source) != MANUAL_ORDER_SOURCE:
-        return False
-    if MANUAL_BLOCKED_REASON in (order.get("schedule_reason") or ""):
         return False
     return True
 
@@ -762,7 +723,6 @@ class ReworkResult:
     # ---- 排班后的最终工单：两组 ----
     new_orders_out: list[dict] = field(default_factory=list)     # 新增（含排定 start/end）
     update_orders: list[dict] = field(default_factory=list)      # 需按 guid 修改的旧工单
-    still_unplaced_old: list[dict] = field(default_factory=list)  # 此前「未能排下」、本次未动的旧单
 
     def to_dict(self) -> dict:
         return {
@@ -772,7 +732,6 @@ class ReworkResult:
             "new": self.new_orders_out,                 # 新增工单（start/end 已排定；未排下为 null）
             "update": self.update_orders,               # 需按 work_order_guid 修改的旧工单
             # ---- 附注 ----
-            "still_unplaced_old": self.still_unplaced_old,  # 此前未排下、本次原样对外对账
             "unplaced_new": self.unplaced,
             "force_proposals": [p.__dict__ for p in self.force_proposals],
             "rework_chain": [s.__dict__ for s in self.rework_steps],
@@ -815,16 +774,7 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     logger.info("旧单分类 机场=%s 固定=%s 可重排=%s 人工=%s",
                 len(old_airport), len(cat.fixed), len(cat.reworkable), len(manual_old))
 
-    # ---- 仍欠排的旧单：此前「未能排下」，本次不占位、不重排，原样保持（显式对账）----
-    for order in cat.reworkable:
-        if "未能排下" in (order.get("schedule_reason") or ""):
-            result.still_unplaced_old.append({
-                "work_order_guid": order["guid"],
-                "work_order_no": order.get("work_order_no"),
-                "work_order_status": order["status"],
-            })
-
-    # ---- 构建调度器 + 初始日历（固定 + 可重排都先占当前位）
+    # ---- 构建调度器 + 初始日历（固定 + 可重排都先占当前位）----
     sched = Scheduler(window_start, window_end, enforce_quota, skip_weekdays, holidays)
     for order in cat.fixed:
         sched.orders[order["guid"]] = order
@@ -937,9 +887,6 @@ def rework(new_orders: list[dict], old_orders: list[dict],
             "start_date": item["new_start"],
             "end_date": item["new_end"],
         }
-        # 台账首位机场优先于原执行机场时，机场变化需同步交付（临时§六）
-        if canonical and canonical.get("airport") != canonical.get("original_airport"):
-            entry["cycle_airport_guid"] = canonical["airport"]
         update_out.append(entry)
     for m in result.manual_schedule:
         if m["work_order_guid"] in old_manual_guids:
@@ -996,8 +943,6 @@ def main() -> None:
         print(f"强插建议 {len(result.force_proposals)} 条（不越过受保护占用）")
     if result.manual_schedule:
         print(f"人工错峰 {len(result.manual_schedule)} 张")
-    if result.still_unplaced_old:
-        print(f"仍欠排旧单 {len(result.still_unplaced_old)} 张（之前未能排下，本次未动）")
     if result.warnings:
         print(f"告警 {len(result.warnings)} 条")
     print(f"已写出：{out_path}")
