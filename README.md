@@ -5,6 +5,7 @@
 - **排期规则**以两份需求文档为准：《周期计划智能调度需求文档.docx》《临时周期计划调度需求确认1110(1).docx》。
 - **拆单口径**参考 `createOrderByPlansNew` 接口业务逻辑说明。
 - 只做计算，**不落库**。整条链路一次跑完，输出结构化结果，由业务平台按结果保存（平台自行生成正式 id，本工程生成的 `work_order_guid` 只是临时关联句柄）。
+- Agent 的拆单、待排集合和排班工具将完整结果作为 Artifact 交付，前端从对话响应的 `artifacts[].data` 读取；`answer` 仅用于展示摘要。仅运行 `main.py` 调试时才写入 `out/result.json`（可通过 `--out` 指定路径）。
 
 ```bash
 python build_mock.py                             # 生成 mock_data/split_input.json
@@ -46,7 +47,7 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 待排集合（新 + 旧）
     │ rework()             先固定旧安排试排 → 链式重排 → 强插建议；人工按周错峰
     ▼
-out/result.json
+结构化结果（Agent：Artifact；main.py：调试 JSON）
 ```
 
 程序化调用：
@@ -110,7 +111,7 @@ out = run_pipeline(payload, existing_rows=None, enforce_quota=True)
 ## 5. 输入 / 输出
 
 - 输入报文：`planSetInfo + planStrategyList + airports`；**不再传 `capacityTable`**。字段含义与 JSON 结构见 [输入参数说明.md](输入参数说明.md)。
-- 输出：按**输入报文格式**回组，`out/result.json`。
+- 输出：按**输入报文格式**回组；Agent 交付在 `artifacts[].data`，`main.py` 写到 `out/result.json`。
 
 ```jsonc
 {
