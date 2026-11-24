@@ -57,7 +57,19 @@
     .approval-choice { display: flex; gap: 7px; align-items: flex-start; color: #4f5d54; font-size: 13px; font-weight: 400; }
     .approval-choice input { margin-top: 5px; }
     .approval-choice small { display: block; color: #87938c; }
-    .approval-actions { display: flex; gap: 8px; }
+    .approval-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .approval-result { margin: 12px 0; max-height: 42vh; overflow: auto; border: 1px solid #d7dfd9; background: #fff; }
+    .approval-result table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .approval-result th, .approval-result td { padding: 6px 8px; border-bottom: 1px solid #e9eeea; text-align: left; white-space: nowrap; }
+    .approval-result th { position: sticky; top: 0; background: #f5f8f6; }
+    .approval-json { margin: 10px 0; }
+    .approval-json pre { max-height: 32vh; overflow: auto; padding: 10px; background: #f5f8f6; }
+    #debugDialog { width: min(760px, 94vw); }
+    .debug-content { padding: 16px 20px 20px; display: grid; gap: 12px; }
+    .debug-content textarea { width: 100%; min-height: 260px; font: 13px/1.5 ui-monospace, monospace; }
+    .debug-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .debug-options input[type='text'] { padding: 7px; border: 1px solid #cbd8d0; border-radius: 5px; }
+    .debug-error { color: #a22e2e; min-height: 1.4em; }
     .approve { color: #fff; background: #227653; border-color: #227653; }
     .reject { color: #a22e2e; border-color: #d8b3b3; }
     dialog { border: 1px solid #d4dfd8; border-radius: 10px; padding: 0; width: min(640px, 88vw); max-height: 80vh; box-shadow: 0 18px 48px rgba(30,40,36,.25); }
@@ -96,12 +108,27 @@
 </head>
 <body>
   <main>
-    <header><h1>Axis</h1><span id="status" role="status">连接中</span><button id="new" type="button">新对话</button><button id="conversationHistory" type="button">对话历史</button><button id="history" type="button">审批历史</button></header>
+    <header><h1>Axis</h1><span id="status" role="status">连接中</span><button id="debugOpen" type="button">排班调试</button><button id="new" type="button">新对话</button><button id="conversationHistory" type="button">对话历史</button><button id="history" type="button">审批历史</button></header>
     <section id="steps" aria-label="执行进度"></section>
     <section id="messages" aria-label="对话记录"></section>
     <div id="activity" role="status" aria-live="polite" hidden><span class="activity-spinner" aria-hidden="true"></span><span id="activityText">正在处理</span></div>
     <form id="form"><textarea id="input" aria-label="消息" placeholder="输入消息…" required></textarea><button id="send" type="submit" disabled>发送</button></form>
   </main>
+  <dialog id="debugDialog">
+    <div class="dialog-head"><h2>排班调试</h2><button id="debugClose" type="button" aria-label="关闭">×</button></div>
+    <div class="debug-content">
+      <label for="debugPayload">计划报文 JSON</label>
+      <textarea id="debugPayload" spellcheck="false" placeholder='{"planSetInfo": {}, "planStrategyList": [], "airports": []}'></textarea>
+      <label>载入本地 JSON <input id="debugFile" type="file" accept=".json,application/json"></label>
+      <div class="debug-options">
+        <label><input id="debugQuota" type="checkbox" checked> 启用日配额</label>
+        <label>跳过星期 <input id="debugWeekdays" type="text" placeholder="例如 7"></label>
+        <label>节假日 <input id="debugHolidays" type="text" placeholder="例如 2026-11-03"></label>
+      </div>
+      <div id="debugError" class="debug-error" role="alert"></div>
+      <div><button id="debugRun" class="approve" type="button">开始排班</button></div>
+    </div>
+  </dialog>
   <dialog id="historyDialog">
     <div class="dialog-head"><h2>审批历史</h2><button id="historyClose" type="button">×</button></div>
     <div id="historyList">加载中…</div>
@@ -132,6 +159,10 @@
     const outputs = new Map();
     const agentGroups = new Map();
     const stepMap = new Map();
+    const debugDialog = document.querySelector('#debugDialog');
+    const debugPayload = document.querySelector('#debugPayload');
+    const debugError = document.querySelector('#debugError');
+    const debugRun = document.querySelector('#debugRun');
 
     function addMessage(label, kind = '') {
       const article = document.createElement('article');
@@ -203,6 +234,7 @@
     function setBusy(value) {
       busy = value; input.disabled = value; newChat.disabled = value;
       send.disabled = value || socket?.readyState !== WebSocket.OPEN;
+      debugRun.disabled = value || socket?.readyState !== WebSocket.OPEN;
       status.dataset.busy = String(value);
     }
     function animate() {
@@ -234,8 +266,57 @@
       description.textContent = event.description || event.tool_name;
       card.append(title, description);
       const displayArguments = event.display_arguments;
+      const isScheduleApproval = event.tool_name === 'confirm_work_order_submission';
+      const assembled = isScheduleApproval ? displayArguments?.['完整组装结果'] : null;
       let detail;
-      if (displayArguments && typeof displayArguments === 'object' && !Array.isArray(displayArguments)) {
+      if (assembled && typeof assembled === 'object') {
+        detail = document.createElement('div');
+        const summary = document.createElement('p');
+        const plans = assembled.planSetInfo || {};
+        summary.textContent = `计划 ${plans.planCount ?? 0} 个 · 新工单 ${plans.workOrderCount ?? 0} 张 · 旧工单 ${assembled.oldWorkOrders?.length ?? 0} 张 · 排班入口 ${assembled.entry || '-'}`;
+        detail.append(summary);
+        const rows = (assembled.planStrategyList || []).flatMap((strategy) =>
+          (strategy.planList || []).flatMap((plan) =>
+            (plan.workOrders || []).map((order) => ({
+              no: order.workOrderNo || order.workOrderGuid,
+              plan: plan.planNo || plan.planGuid,
+              method: String(order.inspectionMethod) === '1' ? '机场' : '人工',
+              start: order.startDate || '未排入',
+              end: order.endDate || '',
+            }))
+          )
+        );
+        for (const order of assembled.oldWorkOrders || []) {
+          rows.push({
+            no: order.workOrderNo || order.workOrderGuid,
+            plan: order.planNo || order.planGuid,
+            method: '旧工单',
+            start: order.startDate || '未排入',
+            end: order.endDate || '',
+          });
+        }
+        const tableWrap = document.createElement('div'); tableWrap.className = 'approval-result';
+        const table = document.createElement('table');
+        const head = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        for (const label of ['工单', '计划', '方式', '开始', '结束']) {
+          const cell = document.createElement('th'); cell.textContent = label; headerRow.append(cell);
+        }
+        head.append(headerRow); table.append(head);
+        const body = document.createElement('tbody');
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+          for (const value of [row.no, row.plan, row.method, row.start, row.end]) {
+            const cell = document.createElement('td'); cell.textContent = value || ''; tr.append(cell);
+          }
+          body.append(tr);
+        }
+        table.append(body); tableWrap.append(table); detail.append(tableWrap);
+        const full = document.createElement('details'); full.className = 'approval-json';
+        const caption = document.createElement('summary'); caption.textContent = '查看完整组装结果';
+        const json = document.createElement('pre'); json.textContent = JSON.stringify(assembled, null, 2);
+        full.append(caption, json); detail.append(full);
+      } else if (displayArguments && typeof displayArguments === 'object' && !Array.isArray(displayArguments)) {
         detail = document.createElement('dl'); detail.className = 'approval-details';
         for (const [labelText, valueText] of Object.entries(displayArguments)) {
           const label = document.createElement('dt'); label.textContent = labelText;
@@ -279,8 +360,8 @@
         card.append(fields);
       }
       const actions = document.createElement('div'); actions.className = 'approval-actions';
-      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = '通过';
-      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = '拒绝';
+      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = isScheduleApproval ? '确定创建机场与人工工单' : '通过';
+      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = isScheduleApproval ? '暂不提交' : '拒绝';
       actions.append(approve, reject); card.append(detail, actions); group.content.append(card); scrollDown();
       const collectValues = () => {
         const values = {};
@@ -345,6 +426,48 @@
       outputs.clear(); agentGroups.clear(); clearSteps(); finished = false; setBusy(true); showActivity(); scrollDown();
       timer = setInterval(animate, 20);
       socket.send(JSON.stringify({message: text, thread_id: threadId}));
+    };
+    document.querySelector('#debugOpen').onclick = () => { debugError.textContent = ''; debugDialog.showModal(); };
+    document.querySelector('#debugClose').onclick = () => debugDialog.close();
+    document.querySelector('#debugFile').onchange = async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      debugPayload.value = await file.text();
+      debugError.textContent = '';
+    };
+    debugRun.onclick = () => {
+      if (busy || socket?.readyState !== WebSocket.OPEN) return;
+      let payload;
+      try {
+        payload = JSON.parse(debugPayload.value);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('计划报文必须是 JSON 对象');
+        if (!payload.planSetInfo || !Array.isArray(payload.planStrategyList) || !Array.isArray(payload.airports)) {
+          throw new Error('需要 planSetInfo、planStrategyList 和 airports');
+        }
+      } catch (error) {
+        debugError.textContent = error.message; return;
+      }
+      const weekdays = document.querySelector('#debugWeekdays').value.trim();
+      const holidays = document.querySelector('#debugHolidays').value.trim();
+      const request = {type: 'work_order_schedule', thread_id: threadId, payload,
+        enforce_quota: document.querySelector('#debugQuota').checked};
+      if (weekdays) {
+        request.skip_weekdays = weekdays.split(',').map((value) => Number(value.trim()));
+        if (request.skip_weekdays.some((day) => !Number.isInteger(day) || day < 1 || day > 7)) {
+          debugError.textContent = '跳过星期只能填写 1 到 7，用逗号分隔'; return;
+        }
+      }
+      if (holidays) {
+        request.holidays = holidays.split(',').map((value) => value.trim());
+        if (request.holidays.some((day) => !/^\d{4}-\d{2}-\d{2}$/.test(day))) {
+          debugError.textContent = '节假日使用 YYYY-MM-DD，用逗号分隔'; return;
+        }
+      }
+      debugDialog.close();
+      addMessage('你', 'user').body.textContent = '提交周期工单排班请求';
+      outputs.clear(); agentGroups.clear(); clearSteps(); finished = false; setBusy(true); showActivity(); scrollDown();
+      timer = setInterval(animate, 20);
+      socket.send(JSON.stringify(request));
     };
     input.onkeydown = (event) => {
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); document.querySelector('#form').requestSubmit(); }

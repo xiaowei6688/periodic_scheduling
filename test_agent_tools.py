@@ -5,12 +5,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from core.approval import ApprovalDecision
 from core.artifacts import MemoryArtifactStore, bind_artifact_store, materialize_artifact_delivery
 from core.builder import GraphBuilder
 from core.config import Settings
 from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_store
 from core.registry import AgentRegistry
 from agents.work_order_scheduling.split_and_schedule.tools import (
+    confirm_work_order_submission,
     prepare_rework_set,
     schedule_work_orders,
     schedule_work_orders_from_request,
@@ -81,8 +83,44 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(
             [item.name for item in registry.get("split_and_schedule").tools],
             ["split_work_orders", "prepare_rework_set", "schedule_work_orders",
-             "schedule_work_orders_from_request"],
+             "schedule_work_orders_from_request", "confirm_work_order_submission"],
         )
+
+    def test_submission_approval_uses_existing_framework_contract(self):
+        store = MemoryArtifactStore()
+        run_id = store.begin_run("test-thread")
+        artifact = store.put(
+            "test-thread", "scheduled_work_orders",
+            {"planSetInfo": {"workOrderCount": 16}, "planStrategyList": [],
+             "oldWorkOrders": [], "entry": "normal",
+             "forceProposals": [], "warnings": []},
+            run_id=run_id,
+        )
+        arguments = {
+            "schedule_artifact_id": artifact.id,
+        }
+        bound = bind_artifact_store(confirm_work_order_submission, store, "split_and_schedule")
+        config = {"configurable": {"thread_id": "test-thread", "artifact_run_id": run_id}}
+        with patch("core.approval.interrupt", return_value=ApprovalDecision(action="approve")) as pause:
+            approved = bound.invoke(arguments, config=config)
+        request = pause.call_args.args[0]
+        self.assertEqual(request["tool_name"], "confirm_work_order_submission")
+        self.assertEqual(request["display_title"], "确认创建机场与人工工单")
+        self.assertIn("新工单 0 张", request["display_arguments"]["排班摘要"])
+        self.assertEqual(request["display_arguments"]["完整组装结果"],
+                         store.get("test-thread", artifact.id)[1])
+        self.assertEqual(approved["status"], "confirmed_for_submission")
+        self.assertEqual(approved["scheduleArtifactId"], artifact.id)
+        self.assertIn("尚未在业务平台创建", approved["message"])
+
+        with patch("core.approval.interrupt", return_value=ApprovalDecision(action="reject")):
+            rejected = bound.invoke(arguments, config=config)
+        self.assertIn("工具调用已被人工拒绝", rejected)
+        self.assertNotIn("confirmed_for_submission", rejected)
+        with self.assertRaisesRegex(ValueError, "不属于本轮"):
+            bound.invoke(arguments, config={"configurable": {
+                "thread_id": "another-thread", "artifact_run_id": "another-run",
+            }})
 
     def test_request_tool_loads_payload_from_thread_state(self):
         state = MemoryWorkflowStateStore()

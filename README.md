@@ -32,6 +32,10 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 
 `payload` 传完整计划报文；上例仅展示必需字段形状。服务端将报文保存在当前会话的临时状态，向多 Agent 图发送请求编号，由排班 Agent 读取报文并按计划窗口查询旧工单；前端不传 `existing_rows`。可选参数还有 `enforce_quota`、`skip_weekdays` 和 `holidays`。服务端发送 `start`、Agent 执行时的 `step`，最终在 `done.artifacts[0].data` 中交付完整结果；失败时发送 `error`。使用同一个 `thread_id` 可继续多 Agent 对话。原有 `message` 文本对话协议不变。
 
+排班工具返回 Artifact 后，Agent 调用 `confirm_work_order_submission` 暂停等待人工审批。审批事件的 `display_arguments["完整组装结果"]` 包含本轮排班结果，页面会显示工单表格和可展开的完整 JSON。审批卡提供“确定创建机场与人工工单”（`approve`）和“暂不提交”（`reject`）两个按钮，继续使用原有 `approval_decision` 协议。审批通过只确认提交意向，完整结果在恢复后的 `done.artifacts[].data` 中交付，实际创建仍需业务前端调用创建接口。
+
+内置 HTML 页的“排班调试”可粘贴或载入本地计划 JSON，并填写配额、跳过星期和节假日；提交后走同一条 WebSocket 多 Agent 流程。
+
 ---
 
 ## 1. 文件
