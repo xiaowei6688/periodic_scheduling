@@ -9,7 +9,7 @@ import json
 import unittest
 from pathlib import Path
 
-from split_work_orders import (
+from agents.work_order_scheduling.split_and_schedule.split_work_orders import (
     AirportTask,
     DeviceAssignment,
     Ledgers,
@@ -323,7 +323,7 @@ class TestInputContract(unittest.TestCase):
             self.assertEqual(set(airport), self.AIRPORT_FIELDS, f"机场字段不符 {airport}")
 
     def test_capacity_is_builtin(self):
-        from split_work_orders import airport_capacity
+        from agents.work_order_scheduling.split_and_schedule.split_work_orders import airport_capacity
         # 三代 jc_03 / 二代 jc_08，对齐单机场承载力.xlsx
         self.assertEqual(airport_capacity("jc_03", "tms", False, "本体", "35"), 30)
         self.assertEqual(airport_capacity("jc_03", "tms", False, "本体", "110"), 20)
@@ -356,7 +356,7 @@ class TestReworkReadiness(unittest.TestCase):
         cls.orders, _, _ = split_all(cls.payload)
 
     def test_order_carries_limit_for_rework(self):
-        from split_work_orders import plan_limit
+        from agents.work_order_scheduling.split_and_schedule.split_work_orders import plan_limit
         for order in self.orders:
             if order["inspection_method"] == "2":
                 self.assertIsNone(order["capacity_limit"], "人工工单不走机场容量约束")
@@ -379,7 +379,7 @@ class TestReworkReadiness(unittest.TestCase):
             self.assertIsNone(order["end_date"])
 
     def test_plan_limit_reacts_to_time_period(self):
-        from split_work_orders import plan_limit
+        from agents.work_order_scheduling.split_and_schedule.split_work_orders import plan_limit
         morning = {"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-12:30:00"}
         afternoon = {"workNatureSub": "t-rcxs", "timePeriod": "12:45:00-18:30:00"}
         full = {"workNatureSub": "t-rcxs", "timePeriod": "08:30:00-17:30:00"}

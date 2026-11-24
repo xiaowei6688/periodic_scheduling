@@ -17,17 +17,7 @@ POST {BASE_URL}/api/main-cycle-server/workOrderInfo/getWorkOrderPage
 - workOrderStatus = "12" 延期     → 暂时丢弃（接口未返回周期时间窗口，无法重排）
 - 其余（8/9/16）                  → 保留
 
-用法
-----
-    # 1) 拆单 + 取范围 + 拉旧单 + 合并（在线）
-    python rework_orders.py --input mock_data/split_input.json --out out/rework_set.json
-
-    # 2) 离线：用本地 JSON 代替接口响应
-    python rework_orders.py --input mock_data/split_input.json \
-        --existing-file out/existing_orders.json --out out/rework_set.json
-
-    # 3) 只测旧工单过滤与归一化
-    python rework_orders.py --existing-file out/existing_orders.json --normalize-only
+调试完整流程请从项目根目录运行 python main.py。
 """
 
 from __future__ import annotations
@@ -43,7 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from split_work_orders import (
+from .split_work_orders import (
     INSPECTION_AIRPORT,
     split_all,
     verify,
@@ -51,7 +41,7 @@ from split_work_orders import (
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[3]
 DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
 DEFAULT_OUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_EXISTING = BASE_DIR / "out" / "existing_orders.json"

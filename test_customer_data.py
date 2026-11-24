@@ -15,7 +15,7 @@ import json
 import unittest
 from pathlib import Path
 
-from split_work_orders import (
+from agents.work_order_scheduling.split_and_schedule.split_work_orders import (
     AirportTask,
     DeviceAssignment,
     Ledgers,

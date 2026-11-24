@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from rework_algorithm import (
+from agents.work_order_scheduling.split_and_schedule.rework_algorithm import (
     Calendar,
     Scheduler,
     _occupy_existing,

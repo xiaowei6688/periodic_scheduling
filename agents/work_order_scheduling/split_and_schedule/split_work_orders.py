@@ -12,9 +12,7 @@
 输出：
     out/work_orders.json   工单主表 + 明细（不含 start_date/end_date，留给排班阶段）
 
-用法：
-    python split_work_orders.py
-    python split_work_orders.py --data-dir mock_data --out out/work_orders.json
+调试完整流程请从项目根目录运行 python main.py。
 """
 
 from __future__ import annotations
@@ -31,7 +29,7 @@ from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[3]
 DEFAULT_DATA_DIR = BASE_DIR / "mock_data"
 DEFAULT_OUT = BASE_DIR / "out" / "work_orders.json"
 

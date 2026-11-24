@@ -21,9 +21,7 @@ L6 强插边界          FR07 / 文档2 第四节
 L7 变更集            接口说明 5.3 历史工单更新范围
 L8 人工错峰          接口说明 6.1 / FR08
 
-用法
-----
-    python rework_algorithm.py --input out/rework_set.json --out out/rework_result.json
+调试完整流程请从项目根目录运行 python main.py。
 """
 
 from __future__ import annotations
@@ -36,7 +34,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from split_work_orders import (
+from .split_work_orders import (
     INSPECTION_AIRPORT,
     INSPECTION_MANUAL,
     budget,
@@ -46,7 +44,7 @@ from split_work_orders import (
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[3]
 DEFAULT_INPUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_OUTPUT = BASE_DIR / "out" / "rework_result.json"
 

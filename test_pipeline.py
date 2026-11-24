@@ -1,4 +1,4 @@
-"""统一入口 main.py 的冒烟测试：拆单 → 合并 → 重排 一条链路跑通。
+"""Agent 流程的冒烟测试：拆单 → 合并 → 重排 一条链路跑通。
 
     python -m unittest test_pipeline -v
 """
@@ -9,7 +9,7 @@ import json
 import unittest
 from pathlib import Path
 
-from main import run_pipeline
+from agents.work_order_scheduling.split_and_schedule.service import run_pipeline
 
 DATA_DIR = Path(__file__).resolve().parent / "mock_data"
 

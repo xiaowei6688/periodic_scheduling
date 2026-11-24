@@ -19,10 +19,8 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 
 | 文件 | 说明 |
 |---|---|
-| `main.py` | **统一入口**：拆单 → 取旧单合并 → 重排，输出最终结果 |
-| `split_work_orders.py` | 拆单：计划报文 → 工单 + 明细（承载力内置） |
-| `rework_orders.py` | 旧工单拉取 → 过滤归一化 → 与新单合并成待排集合 |
-| `rework_algorithm.py` | 重排算法：插入 / 链式重排 / 强插建议 / 人工错峰 |
+| `agents/work_order_scheduling/split_and_schedule/` | AgentSpec、三个工具、拆单与排班实现；`service.py` 编排流程，`output.py` 组装输出 |
+| `main.py` | 算法调试命令行入口，调用 Agent 包内流程 |
 | `build_mock.py` | 生成 `mock_data/split_input.json`、`split_input_multi.json` |
 | `输入参数说明.md` | 输入报文字段含义与 JSON 结构 |
 | `输出结构说明.md` | 输出 `out/result.json` 的 JSON 结构说明 |
@@ -48,13 +46,13 @@ out/result.json
 程序化调用：
 
 ```python
-from main import run_pipeline
+from agents.work_order_scheduling.split_and_schedule.service import run_pipeline
 
 out = run_pipeline(payload, existing_rows=None, enforce_quota=True)
 # out = {"planSetInfo": {...}, "planStrategyList": [...], "oldWorkOrders": [...], "entry": "...", ...}
 ```
 
-CLI 参数（`main.py`；`rework_algorithm.py` 同义）：
+算法调试入口 `main.py` 的 CLI 参数：
 
 | 参数 | 默认 | 说明 |
 |---|---|---|

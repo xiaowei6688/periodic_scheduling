@@ -9,13 +9,13 @@ import json
 import unittest
 from pathlib import Path
 
-from rework_orders import (
+from agents.work_order_scheduling.split_and_schedule.rework_orders import (
     build_rework_set,
     filter_reworkable,
     normalize_existing,
     order_date_span,
 )
-from split_work_orders import plan_limit, split_all, verify
+from agents.work_order_scheduling.split_and_schedule.split_work_orders import plan_limit, split_all, verify
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "mock_data"
