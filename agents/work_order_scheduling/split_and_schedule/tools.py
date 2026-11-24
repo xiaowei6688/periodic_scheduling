@@ -98,6 +98,105 @@ def _schedule_summary(result: dict) -> str:
     )
 
 
+def _schedule_orders(result: dict) -> list[dict]:
+    return [
+        order
+        for strategy in result.get("planStrategyList") or []
+        for plan in strategy.get("planList") or []
+        for order in plan.get("workOrders") or []
+    ]
+
+
+def _date_part(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text[:10] if len(text) >= 10 else None
+
+
+def _confirmation_view(result: dict) -> dict[str, Any]:
+    """把排班结果转换成业务前端可直接渲染的两类确认视图。"""
+    orders = _schedule_orders(result)
+    scheduled = [o for o in orders if o.get("startDate") and o.get("endDate")]
+    unplaced = [o for o in orders if not o.get("startDate") or not o.get("endDate")]
+    plans = [
+        plan
+        for strategy in result.get("planStrategyList") or []
+        for plan in strategy.get("planList") or []
+    ]
+    range_starts = [
+        date for order in orders
+        if (date := _date_part(order.get("cycleStartDate") or order.get("preStartDate")))
+    ]
+    range_ends = [
+        date for order in orders
+        if (date := _date_part(order.get("cycleEndDate") or order.get("preEndDate")))
+    ]
+    impact_stats = (result.get("impactChains") or {}).get("stats") or {}
+    moved_old = {
+        order.get("workOrderGuid")
+        for order in result.get("oldWorkOrders") or []
+        if order.get("workOrderGuid") and order.get("result") != "未调整"
+    }
+    proposed_updates = {
+        str(update.get("work_order_guid") or update.get("workOrderGuid"))
+        for proposal in result.get("forceProposals") or []
+        for update in proposal.get("updateProposals") or []
+        if update.get("work_order_guid") or update.get("workOrderGuid")
+    }
+    is_force_insert = result.get("entry") == "forceInsert" or bool(unplaced)
+    counts = {
+        "planTotal": len(plans),
+        "newTotal": len(orders),
+        "airport": sum(str(o.get("inspectionMethod")) == "1" for o in orders),
+        "manual": sum(str(o.get("inspectionMethod")) == "2" for o in orders),
+        "scheduled": len(scheduled),
+        "unplaced": len(unplaced),
+        "directAffected": int(impact_stats.get("directCount") or 0),
+        "indirectAffected": int(impact_stats.get("indirectCount") or 0),
+        "oldUpdates": len(proposed_updates) if is_force_insert else len(moved_old),
+    }
+
+    if is_force_insert:
+        summary = (
+            f"已校对 {counts['planTotal']} 个计划。新增 {counts['newTotal']} 张工单中，"
+            f"已排入 {counts['scheduled']} 张，仍有 {counts['unplaced']} 张未排入，不能直接按规则创建。"
+            f"若确认强插，将直接影响 {counts['directAffected']} 张、间接影响 "
+            f"{counts['indirectAffected']} 张旧工单，并拟更新 {counts['oldUpdates']} 张旧工单。"
+            "请核对影响后，再决定是否采用强插方案。"
+        )
+        variant = "force_insert"
+        title = "确认强插方案"
+        approve_label = "确认强插并创建"
+        reject_label = "放弃创建"
+    else:
+        old_order_note = (
+            f"已调整 {counts['oldUpdates']} 张旧工单并完成重排。"
+            if counts["oldUpdates"]
+            else "已有工单保持不变。"
+        )
+        summary = (
+            f"已按执行方式分流：机场 {counts['airport']} 张、人工 {counts['manual']} 张。"
+            "机场工单已完成排期，人工工单保留候选窗口，确认创建后由平台完成正式人工排期。"
+            + old_order_note
+        )
+        variant = "ready"
+        title = "确认创建机场与人工工单"
+        approve_label = "确认创建机场与人工工单"
+        reject_label = "暂不提交"
+
+    return {
+        "variant": variant,
+        "title": title,
+        "summary": summary,
+        "inspectionRange": {
+            "start": min(range_starts) if range_starts else None,
+            "end": max(range_ends) if range_ends else None,
+        },
+        "counts": counts,
+        "approveLabel": approve_label,
+        "rejectLabel": reject_label,
+    }
+
+
 split_work_orders = with_progress(
     make_artifact_result_tool(
         _split_work_orders,
@@ -186,6 +285,7 @@ def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None)
         if entry is None or entry[0].type != "scheduled_work_orders":
             raise ValueError("排班结果不存在或不属于本轮请求，请重新排班")
         result = entry[1]
+        confirmation = _confirmation_view(result)
 
         @tool("confirm_work_order_submission")
         def approve(schedule_artifact_id: str) -> dict[str, str]:
@@ -193,15 +293,17 @@ def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None)
             return {
                 "status": "confirmed_for_submission",
                 "scheduleArtifactId": schedule_artifact_id,
-                "message": "已确认提交意向",
+                "confirmationVariant": confirmation["variant"],
+                "message": "已确认提交意向，尚未在业务平台创建工单",
             }
 
         approval = require_approval(
             approve,
             ApprovalSpec(
-                description="请核对结果。确认后可使用本轮数据创建机场与人工工单。",
-                display_title="确认创建机场与人工工单",
+                description=confirmation["summary"],
+                display_title=confirmation["title"],
                 display_arguments=lambda _: {
+                    "确认视图": confirmation,
                     "排班摘要": _schedule_summary(result),
                     "完整组装结果": result,
                 },

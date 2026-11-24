@@ -12,6 +12,7 @@ from core.config import Settings
 from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_store
 from core.registry import AgentRegistry
 from agents.work_order_scheduling.split_and_schedule.tools import (
+    _confirmation_view,
     confirm_work_order_submission,
     prepare_rework_set,
     schedule_work_orders,
@@ -106,10 +107,15 @@ class TestAgentTools(unittest.TestCase):
         request = pause.call_args.args[0]
         self.assertEqual(request["tool_name"], "confirm_work_order_submission")
         self.assertEqual(request["display_title"], "确认创建机场与人工工单")
+        view = request["display_arguments"]["确认视图"]
+        self.assertEqual(view["variant"], "ready")
+        self.assertEqual(view["approveLabel"], "确认创建机场与人工工单")
+        self.assertEqual(view["rejectLabel"], "暂不提交")
         self.assertIn("新工单 0 张", request["display_arguments"]["排班摘要"])
         self.assertEqual(request["display_arguments"]["完整组装结果"],
                          store.get("test-thread", artifact.id)[1])
         self.assertEqual(approved["status"], "confirmed_for_submission")
+        self.assertEqual(approved["confirmationVariant"], "ready")
         self.assertEqual(approved["scheduleArtifactId"], artifact.id)
         self.assertIn("尚未在业务平台创建", approved["message"])
 
@@ -121,6 +127,61 @@ class TestAgentTools(unittest.TestCase):
             bound.invoke(arguments, config={"configurable": {
                 "thread_id": "another-thread", "artifact_run_id": "another-run",
             }})
+
+    def test_confirmation_view_distinguishes_rework_and_force_insert(self):
+        scheduled_airport = {
+            "inspectionMethod": "1",
+            "cycleStartDate": "2026-11-12 00:00:00",
+            "cycleEndDate": "2026-11-14 23:59:59",
+            "startDate": "2026-11-12 08:30:00",
+            "endDate": "2026-11-12 10:00:00",
+        }
+        reworked = {
+            "planStrategyList": [{"planList": [{"workOrders": [
+                scheduled_airport,
+                {
+                    "inspectionMethod": "2",
+                    "cycleStartDate": "2026-11-12 00:00:00",
+                    "cycleEndDate": "2026-11-14 23:59:59",
+                    "startDate": "2026-11-12 00:00:00",
+                    "endDate": "2026-11-14 23:59:59",
+                },
+            ]}]}],
+            "oldWorkOrders": [{"workOrderGuid": "old-1", "result": "已排妥"}],
+            "impactChains": {"stats": {"directCount": 1, "indirectCount": 0}},
+            "entry": "insertRework",
+            "forceProposals": [],
+        }
+        ready = _confirmation_view(reworked)
+        self.assertEqual(ready["variant"], "ready")
+        self.assertEqual(ready["inspectionRange"], {
+            "start": "2026-11-12", "end": "2026-11-14",
+        })
+        self.assertEqual(ready["counts"]["oldUpdates"], 1)
+        self.assertIn("已调整 1 张旧工单", ready["summary"])
+
+        forced = {
+            **reworked,
+            "entry": "forceInsert",
+            "planStrategyList": [{"planList": [{"workOrders": [
+                scheduled_airport,
+                {"inspectionMethod": "1", "startDate": None, "endDate": None},
+            ]}]}],
+            "impactChains": {"stats": {"directCount": 3, "indirectCount": 6}},
+            "forceProposals": [{"updateProposals": [
+                {"work_order_guid": "old-1"},
+                {"work_order_guid": "old-2"},
+            ]}],
+        }
+        force_view = _confirmation_view(forced)
+        self.assertEqual(force_view["variant"], "force_insert")
+        self.assertEqual(force_view["counts"]["scheduled"], 1)
+        self.assertEqual(force_view["counts"]["unplaced"], 1)
+        self.assertEqual(force_view["counts"]["directAffected"], 3)
+        self.assertEqual(force_view["counts"]["indirectAffected"], 6)
+        self.assertEqual(force_view["counts"]["oldUpdates"], 2)
+        self.assertEqual(force_view["approveLabel"], "确认强插并创建")
+        self.assertEqual(force_view["rejectLabel"], "放弃创建")
 
     def test_request_tool_loads_payload_from_thread_state(self):
         state = MemoryWorkflowStateStore()
