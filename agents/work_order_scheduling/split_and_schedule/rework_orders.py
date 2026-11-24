@@ -8,7 +8,7 @@
 
 数据来源
 --------
-POST {BASE_URL}/api/main-cycle-server/workOrderInfo/getWorkOrderPage
+POST {MAIN_CYCLE_BASE}/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage
     只需要 startTime / endTime 两个参数，范围由新拆工单的最早 ~ 最晚日期决定。
 
 过滤规则
@@ -25,13 +25,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
+
+from ..shared import ApiError, get_shared_client
 
 from .split_work_orders import (
     INSPECTION_AIRPORT,
@@ -46,19 +45,8 @@ DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
 DEFAULT_OUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_EXISTING = BASE_DIR / "out" / "existing_orders.json"
 
-# ---- 接口配置（可用环境变量覆盖）----
-API_BASE = os.environ.get("MAIN_CYCLE_BASE", "http://10.10.2.101:8000")
+# ---- 接口配置 ----
 API_PATH = "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage"
-# 网关鉴权需要两个头一起发：
-#   authorization: Basic <client_id:client_secret>   —— 客户端凭证
-#   zxhc-auth:     bearer <access_token>             —— 用户令牌（本产品的自定义头名）
-# 可用环境变量覆盖，例如换 token 只改 MAIN_CYCLE_TOKEN
-AUTH_BASIC = os.environ.get("MAIN_CYCLE_BASIC", "Basic c2FiZXI6c2FiZXJfc2VjcmV0")
-AUTH_HEADER = os.environ.get("MAIN_CYCLE_AUTH_HEADER", "zxhc-auth")
-TOKEN = os.environ.get(
-    "MAIN_CYCLE_TOKEN",
-    "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXB0X2NvZGUiOiIxMDAiLCJ0ZW5hbnRfaWQiOiIwMDAwMDAiLCJ1c2VyX25hbWUiOiJaTllKIiwicmVhbF9uYW1lIjoi566hKuWRmCIsImNsaWVudF9pZCI6InNhYmVyIiwibWFqb3IiOiJxenkiLCJyb2xlX2lkIjoiMTEyMzU5ODgxNjczODY3NTIwMSwxNzY1NTY4NzU1OTY1OTM1NjE3LDE3NjU1NjkwMjA0Mzc3NzQzMzgsMTc2NzgwNDA0NTk1NDY5NTE2OSwxNzY3Nzg4MzgyNjYxOTUxNDkwLDE3Njc3ODc4Mzc4ODQ3NzY0NDksMTc5NjEzNTYzNzQ2Njc5MTkzNywxODkzMjA5NDcwMDIyMTU2MjkwLDE5MjgzODc3MTUyMTg3MzkyMDEsMjAwMDc1NTY3Nzg2MjI2NDgzMywyMDAzMzg0NTg2MTE0MTM4MTEzIiwicG9zdF9uYW1lIjoi6K645Y-v5Lq6LOetvuWPkeS6uizlpJbkuJoiLCJzY29wZSI6WyJhbGwiXSwib2F1dGhfaWQiOiIiLCJleHAiOjE3OTYwMTUwMDIsImp0aSI6IjRlZmZjNTYwLThmOGEtNDIxYy1iM2UzLWRhODM2Y2JmNzRhZCIsImRlcHRfbmFtZSI6Iua1i-ivleWbvSIsImF2YXRhciI6Imh0dHBzOi8vZ3cuYWxpcGF5b2JqZWN0cy5jb20vem9zL3Jtc3BvcnRhbC9CaWF6ZmFueG1hbU5Sb3h4VnhrYS5wbmciLCJtYWpvcl9uYW1lIjoi5YWo5LiT5LiaIiwiYXV0aG9yaXRpZXMiOlsiYWRtaW5pc3RyYXRvciIsInVhdl9jb3JlX3dvcmtpbmdfcHJvZmVzc2lvbmFsIiwidWF2X2NvcmVfdGFza19wcm9mZXNzaW9uYWwiLCJ1YXZfY29yZV90ZWFtX21lbWJlcnMiLCJkb3duX3BpYyIsImhvbWV3b3JrX2NsYXNzX2xlYWRlciIsInVhdl9jb3JlX3Rhc2tfcGVyc29uIiwiZXF1aXBfdGVhbV9tZW1iZXIiLCJ1YXZfY29yZV9kaXJlY3RvciIsInRtc19idXNfZnVsbF90aW1lIl0sInJvbGVfbmFtZSI6ImFkbWluaXN0cmF0b3IsdWF2X2NvcmVfd29ya2luZ19wcm9mZXNzaW9uYWwsdWF2X2NvcmVfdGVhbV9tZW1iZXJzLHVhdl9jb3JlX2RpcmVjdG9yLHVhdl9jb3JlX3Rhc2tfcHJvZmVzc2lvbmFsLHVhdl9jb3JlX3Rhc2tfcGVyc29uLGhvbWV3b3JrX2NsYXNzX2xlYWRlcix0bXNfYnVzX2Z1bGxfdGltZSxkb3duX3BpYyxlcXVpcF90ZWFtX21lbWJlciIsImxpY2Vuc2UiOiJwb3dlcmVkIGJ5IHp4aGMiLCJwb3N0X2lkIjoiMTEyMzU5ODgxNzczODY3NTIwMiwxMTIzNTk4ODE3NzM4Njc1MjAzLDE3ODgwMjk3OTQ4NjIwNzU5MDYiLCJ1c2VyX2lkIjoiMTEyMzU5ODgyMTczODY3NTIwMSIsInF1ZXJ5X2RlcHRfY29kZSI6IjEwMCIsInBob25lIjoiMTIzMzMzMzMzMzMzMDAiLCJuaWNrX25hbWUiOiLnrqHnkIblkZgiLCJwb3N0X2NvZGUiOiJsaWNlbnNvcixpc3N1ZXIsb3BlcmF0aXZlcyIsImRlcHRfY2F0ZWdvcnkiOjEsImRldGFpbCI6eyJ0eXBlIjoid2ViIn0sImRlcHRfaWQiOiIxNTU2OTg0ODg2NzAzNzIyNDk3IiwiYWNjb3VudCI6IlpOWUoifQ.3oxSMddBqcRuSFe2xSKaHYQi3jsHpkQiv5kkaWJm6jY",
-)
 
 # ---- 状态码 ----
 STATUS_CANCELLED = "11"     # 已作废
@@ -71,14 +59,9 @@ DATE_FMT = "%Y-%m-%d %H:%M:%S"
 # ---------------------------------------------------------------- 接口访问
 
 
-class ApiError(RuntimeError):
-    pass
-
-
 def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 100,
                           max_pages: int = 500) -> list[dict]:
     """按时间段拉旧工单，自动翻页。只传 startTime / endTime 即可。"""
-    url = API_BASE.rstrip("/") + API_PATH
     collected: list[dict] = []
     for page in range(1, max_pages + 1):
         body = {
@@ -89,30 +72,13 @@ def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 10
             "size": page_size,
             "extData": {},
         }
-        payload = _post_json(url, body)
+        payload = get_shared_client().post(API_PATH, body)
         rows, has_next = _extract_rows(payload)
         collected.extend(rows)
         logger.info("拉取旧工单 第%s页 rows=%s 累计=%s", page, len(rows), len(collected))
         if not has_next or not rows:
             break
     return collected
-
-
-def _post_json(url: str, body: dict) -> dict:
-    data = json.dumps(body, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(url, data=data, method="POST", headers={
-        "Content-Type": "application/json",
-        "authorization": AUTH_BASIC,
-        AUTH_HEADER: TOKEN,
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:300]
-        raise ApiError(f"HTTP {exc.code} {url} -> {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise ApiError(f"连接失败 {url}: {exc.reason}") from exc
 
 
 def _extract_rows(payload: dict) -> tuple[list[dict], bool]:
@@ -357,7 +323,7 @@ def main() -> None:
             save_existing=args.save_existing if existing_rows is None else None)
     except ApiError as exc:
         print(f"接口获取失败：{exc}")
-        print("可用 --existing-file 离线模式，或检查 MAIN_CYCLE_TOKEN / MAIN_CYCLE_AUTH_HEADER")
+        print("可用 --existing-file 离线模式，或检查 MAIN_CYCLE_BASIC / MAIN_CYCLE_TOKEN / MAIN_CYCLE_AUTH_HEADER")
         raise SystemExit(2)
     except ValueError as exc:
         print(str(exc))

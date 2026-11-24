@@ -82,4 +82,6 @@ split_work_orders = with_progress(_split_work_orders, title="拆分工单")
 prepare_rework_set = with_progress(_prepare_rework_set, title="生成待排集合")
 schedule_work_orders = with_progress(_schedule_work_orders, title="工单排班")
 
-__all__ = ["split_work_orders", "prepare_rework_set", "schedule_work_orders"]
+TOOLS = [split_work_orders, prepare_rework_set, schedule_work_orders]
+
+__all__ = ["TOOLS", "split_work_orders", "prepare_rework_set", "schedule_work_orders"]

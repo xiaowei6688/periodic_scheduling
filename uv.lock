@@ -1623,6 +1623,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
 
@@ -1636,6 +1637,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=1.2.24" },
     { name = "pydantic", specifier = ">=2.14.4" },
     { name = "pydantic-settings", specifier = ">=2.16.3" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 

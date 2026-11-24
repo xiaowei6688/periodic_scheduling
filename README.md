@@ -13,6 +13,12 @@ python main.py --existing-file out/existing_orders.json --out out/result.json
 python -m unittest discover -p "test_*.py" -v    # 全量回归
 ```
 
+在线查询旧工单时，在 `agents/work_order_scheduling/.env` 中配置 `MAIN_CYCLE_BASIC` 和 `MAIN_CYCLE_TOKEN`；
+同名进程环境变量优先于 `.env`，该文件已被 Git 忽略。
+可选 `MAIN_CYCLE_BASE`（默认 `http://10.10.2.101:8000`）、
+`MAIN_CYCLE_AUTH_HEADER`（默认 `zxhc-auth`）和 `MAIN_CYCLE_TIMEOUT_SECONDS`（默认 30）。
+接口连接与鉴权统一放在 `agents/work_order_scheduling/shared/`，离线传入旧工单列表时无需配置。
+
 ---
 
 ## 1. 文件
