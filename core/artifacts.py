@@ -605,5 +605,20 @@ def make_artifact_result_tool(
             visible=visible,
         ),
     )
+    rebind_workflow = getattr(tool, "_axis_rebind_workflow_state_tool", None)
+    if rebind_workflow is not None:
+        object.__setattr__(
+            wrapped,
+            "_axis_rebind_workflow_state_tool",
+            lambda workflow_store: make_artifact_result_tool(
+                rebind_workflow(workflow_store),
+                store,
+                artifact_type=artifact_type,
+                summary=summary,
+                schema_version=schema_version,
+                producer=producer,
+                visible=visible,
+            ),
+        )
     return wrapped
 

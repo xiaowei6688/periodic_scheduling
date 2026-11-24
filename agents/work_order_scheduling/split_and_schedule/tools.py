@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import StructuredTool
 from langchain_core.tools import tool
 
 from core.artifacts import make_artifact_result_tool
 from core.steps import with_progress
+from core.workflow_state import WorkflowStateStore
 from .rework_orders import collect_rework_set
 from .service import run_pipeline
 from .split_work_orders import split_all, verify
@@ -125,6 +130,56 @@ schedule_work_orders = with_progress(
     title="工单排班",
 )
 
-TOOLS = [split_work_orders, prepare_rework_set, schedule_work_orders]
+REQUEST_NAMESPACE = "work_order_schedule"
 
-__all__ = ["TOOLS", "split_work_orders", "prepare_rework_set", "schedule_work_orders"]
+
+def _make_schedule_request_tool(store: WorkflowStateStore | None = None):
+    def schedule_request(request_id: str, config: RunnableConfig) -> dict[str, Any]:
+        """按本会话已提交的结构化请求排班，旧工单始终从业务接口查询。"""
+        if store is None:
+            raise RuntimeError("排班请求工具尚未绑定运行时状态")
+        thread_id = str((config.get("configurable") or {}).get("thread_id") or "")
+        data = store.load(thread_id, REQUEST_NAMESPACE, request_id)
+        if not isinstance(data, dict):
+            raise ValueError("排班请求不存在或已过期，请重新提交计划报文")
+        payload = data["payload"]
+        _check_payload(payload)
+        return run_pipeline(
+            payload,
+            enforce_quota=data["enforce_quota"],
+            skip_weekdays=data["skip_weekdays"],
+            holidays=data["holidays"],
+        )
+
+    wrapped = StructuredTool.from_function(
+        schedule_request,
+        name="schedule_work_orders_from_request",
+    )
+    object.__setattr__(
+        wrapped,
+        "_axis_rebind_workflow_state_tool",
+        lambda runtime_store: _make_schedule_request_tool(runtime_store),
+    )
+    return wrapped
+
+
+schedule_work_orders_from_request = with_progress(
+    make_artifact_result_tool(
+        _make_schedule_request_tool(),
+        artifact_type="scheduled_work_orders",
+        summary=_schedule_summary,
+    ),
+    title="工单排班",
+)
+
+TOOLS = [
+    split_work_orders,
+    prepare_rework_set,
+    schedule_work_orders,
+    schedule_work_orders_from_request,
+]
+
+__all__ = [
+    "TOOLS", "split_work_orders", "prepare_rework_set",
+    "schedule_work_orders", "schedule_work_orders_from_request",
+]

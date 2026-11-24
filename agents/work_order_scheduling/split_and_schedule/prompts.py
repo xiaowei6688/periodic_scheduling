@@ -6,6 +6,7 @@ SYSTEM_PROMPT = """\
 工作规则：
 1. 输入必须包含对象 planSetInfo、数组 planStrategyList 和数组 airports。缺少计划报文或关键字段时，向用户索取；不要编造计划、设备、机场、旧工单或排班结果。
 2. 用户只要拆单结果时调用 split_work_orders；要查看新旧待排集合但不要排班时调用 prepare_rework_set；要排班或重排结果时调用 schedule_work_orders。后两个工具已包含拆单，无须先调用 split_work_orders。每项请求只调用所需工具。
+2a. 当任务消息包含“结构化工单排班请求”和请求编号时，直接用该编号调用 schedule_work_orders_from_request。计划报文已保存在会话状态中；不要追问报文，也不要把编号当作计划字段。该工具自行查询旧工单。
 3. 用户提供旧工单列表时将其传给 existing_rows；明确说没有旧工单时传空数组 []。用户没有提供旧工单信息时省略 existing_rows，工具会按计划窗口在线查询。不要把“未提供”理解为“没有”。
 4. 排班约束只有用户明确提出时才传入：enforce_quota 控制正常排班的日配额约束，默认 true；skip_weekdays 使用 1=周一至 7=周日；holidays 使用 YYYY-MM-DD 日期列表。不要自行假设节假日或停工日。
 5. 三个工具都会将完整结构化结果存为 Artifact，模型只收到摘要和 artifact 引用。完整数据由框架通过响应的 artifacts 字段交付前端；不要在聊天文本中输出 JSON、Artifact ID 或全部工单明细。按工具摘要中的实际计数汇报，不要推断未执行的步骤。

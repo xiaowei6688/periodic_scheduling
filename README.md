@@ -20,13 +20,25 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 `MAIN_CYCLE_AUTH_HEADER`（默认 `zxhc-auth`）和 `MAIN_CYCLE_TIMEOUT_SECONDS`（默认 30）。
 接口连接与鉴权统一放在 `agents/work_order_scheduling/shared/`，离线传入旧工单列表时无需配置。
 
+前端一键排班通过 `/v1/chat/ws` 发送结构化消息：
+
+```json
+{
+  "type": "work_order_schedule",
+  "thread_id": "当前会话 ID",
+  "payload": {"planSetInfo": {}, "planStrategyList": [], "airports": []}
+}
+```
+
+`payload` 传完整计划报文；上例仅展示必需字段形状。服务端将报文保存在当前会话的临时状态，向多 Agent 图发送请求编号，由排班 Agent 读取报文并按计划窗口查询旧工单；前端不传 `existing_rows`。可选参数还有 `enforce_quota`、`skip_weekdays` 和 `holidays`。服务端发送 `start`、Agent 执行时的 `step`，最终在 `done.artifacts[0].data` 中交付完整结果；失败时发送 `error`。使用同一个 `thread_id` 可继续多 Agent 对话。原有 `message` 文本对话协议不变。
+
 ---
 
 ## 1. 文件
 
 | 文件 | 说明 |
 |---|---|
-| `agents/work_order_scheduling/split_and_schedule/` | AgentSpec、三个工具、拆单与排班实现；`service.py` 编排流程，`output.py` 组装输出 |
+| `agents/work_order_scheduling/split_and_schedule/` | AgentSpec、拆单/待排/排班及会话请求工具；`service.py` 编排流程，`output.py` 组装输出 |
 | `main.py` | 算法调试命令行入口，调用 Agent 包内流程 |
 | `build_mock.py` | 生成 `mock_data/split_input.json`、`split_input_multi.json` |
 | `输入参数说明.md` | 输入报文字段含义与 JSON 结构 |

@@ -17,7 +17,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from langchain_core.messages import BaseMessage
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import (
     AgentRegistry,
@@ -69,6 +69,19 @@ class ChatRequest(BaseModel):
 
     message: str = Field(min_length=1)
     thread_id: str = Field(default="")
+
+
+class WorkOrderScheduleRequest(BaseModel):
+    """前端一键排班的结构化 WebSocket 请求。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["work_order_schedule"]
+    payload: dict[str, Any]
+    thread_id: str = ""
+    enforce_quota: bool = True
+    skip_weekdays: list[int] | None = None
+    holidays: list[str] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -593,7 +606,53 @@ def create_app(runtime: AgentRuntime | None = None) -> FastAPI:
                     await websocket.send_json({"type": "error", "message": "请求格式错误，message 必须为非空字符串"})
                     continue
                 try:
-                    if isinstance(payload, dict) and payload.get("type") == "approval_decision":
+                    if isinstance(payload, dict) and payload.get("type") == "work_order_schedule":
+                        from agents.work_order_scheduling.split_and_schedule.tools import (
+                            REQUEST_NAMESPACE,
+                            _check_payload,
+                        )
+
+                        request = WorkOrderScheduleRequest.model_validate(payload)
+                        _check_payload(request.payload)
+                        session_id = request.thread_id or session_id
+                        turn_id = uuid4().hex
+                        internal_id = _scoped_thread_id(subject, session_id)
+                        message = (
+                            "请处理本次结构化工单排班请求。计划报文已保存在当前会话，"
+                            f"请求编号 {turn_id}。请将排班任务交给 split_and_schedule，"
+                            "由它调用 schedule_work_orders_from_request 并交付完整结果 Artifact。"
+                        )
+                        async with chat_runtime.thread_lock(internal_id):
+                            await websocket.send_json({
+                                "type": "start", "thread_id": session_id, "turn_id": turn_id,
+                            })
+                            chat_runtime.workflow_state_store.save(
+                                internal_id,
+                                REQUEST_NAMESPACE,
+                                turn_id,
+                                {
+                                    "payload": request.payload,
+                                    "enforce_quota": request.enforce_quota,
+                                    "skip_weekdays": request.skip_weekdays,
+                                    "holidays": request.holidays,
+                                },
+                            )
+                            await chat_runtime.arecord_conversation_message(StoredConversationMessage(
+                                thread_id=internal_id,
+                                turn_id=turn_id,
+                                message_id=uuid4().hex,
+                                role="user",
+                                content="提交周期工单排班请求",
+                                created_at=datetime.now(timezone.utc),
+                            ))
+                            with chat_runtime.execution_turn(turn_id):
+                                await send_run(
+                                    chat_runtime.astream_steps(message, thread_id=internal_id),
+                                    session_id,
+                                    internal_id,
+                                    turn_id,
+                                )
+                    elif isinstance(payload, dict) and payload.get("type") == "approval_decision":
                         decision_message = ApprovalDecisionMessage.model_validate(payload)
                         session_id = decision_message.thread_id
                         internal_id = _scoped_thread_id(subject, session_id)

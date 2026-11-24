@@ -3,12 +3,17 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from core.artifacts import MemoryArtifactStore, bind_artifact_store, materialize_artifact_delivery
+from core.builder import GraphBuilder
+from core.config import Settings
+from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_store
 from core.registry import AgentRegistry
 from agents.work_order_scheduling.split_and_schedule.tools import (
     prepare_rework_set,
     schedule_work_orders,
+    schedule_work_orders_from_request,
     split_work_orders,
 )
 
@@ -75,8 +80,80 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(registry.names(), ["split_and_schedule"])
         self.assertEqual(
             [item.name for item in registry.get("split_and_schedule").tools],
-            ["split_work_orders", "prepare_rework_set", "schedule_work_orders"],
+            ["split_work_orders", "prepare_rework_set", "schedule_work_orders",
+             "schedule_work_orders_from_request"],
         )
+
+    def test_request_tool_loads_payload_from_thread_state(self):
+        state = MemoryWorkflowStateStore()
+        state.save("thread-1", "work_order_schedule", "request-1", {
+            "payload": self.payload,
+            "enforce_quota": True,
+            "skip_weekdays": None,
+            "holidays": None,
+        })
+        artifacts = MemoryArtifactStore()
+        bound = bind_artifact_store(
+            bind_workflow_state_store(schedule_work_orders_from_request, state),
+            artifacts,
+            "split_and_schedule",
+        )
+        run_id = artifacts.begin_run("thread-1")
+        with patch(
+            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            return_value=[],
+        ) as fetch:
+            response = json.loads(bound.invoke(
+                {"request_id": "request-1"},
+                config={"configurable": {
+                    "thread_id": "thread-1", "artifact_run_id": run_id,
+                }},
+            ))
+        fetch.assert_called_once()
+        self.assertIn("新工单 16 张", response["summary"])
+        delivered = materialize_artifact_delivery(artifacts, "thread-1", run_id)
+        self.assertEqual(delivered[0][0].type, "scheduled_work_orders")
+        self.assertEqual(delivered[0][1]["planSetInfo"]["workOrderCount"], 16)
+        with self.assertRaisesRegex(ValueError, "不存在或已过期"):
+            bound.invoke(
+                {"request_id": "request-1"},
+                config={"configurable": {
+                    "thread_id": "thread-2", "artifact_run_id": "run-2",
+                }},
+            )
+
+    def test_graph_builder_binds_request_state_and_artifact_store(self):
+        state = MemoryWorkflowStateStore()
+        artifacts = MemoryArtifactStore()
+        state.save("thread-1", "work_order_schedule", "request-1", {
+            "payload": self.payload,
+            "enforce_quota": True,
+            "skip_weekdays": None,
+            "holidays": None,
+        })
+        spec = AgentRegistry().discover_package("agents").get("split_and_schedule")
+        builder = GraphBuilder(
+            [spec], MagicMock(), settings=Settings(),
+            workflow_state_store=state, artifact_store=artifacts,
+        )
+        tool = next(
+            item for item in builder._agent_tools(spec)
+            if item.name == "schedule_work_orders_from_request"
+        )
+        run_id = artifacts.begin_run("thread-1")
+        with patch(
+            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            return_value=[],
+        ):
+            response = json.loads(tool.invoke(
+                {"request_id": "request-1"},
+                config={"configurable": {
+                    "thread_id": "thread-1", "artifact_run_id": run_id,
+                }},
+            ))
+        self.assertIn("新工单 16 张", response["summary"])
+        self.assertEqual(artifacts.list("thread-1", run_id=run_id)[0].type,
+                         "scheduled_work_orders")
 
 
 if __name__ == "__main__":
