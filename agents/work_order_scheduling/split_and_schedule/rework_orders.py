@@ -59,7 +59,7 @@ DATE_FMT = "%Y-%m-%d %H:%M:%S"
 # ---------------------------------------------------------------- 接口访问
 
 
-def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 100,
+def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 500,
                           max_pages: int = 500) -> list[dict]:
     """按时间段拉旧工单，自动翻页。只传 startTime / endTime 即可。"""
     collected: list[dict] = []
