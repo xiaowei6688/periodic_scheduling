@@ -57,6 +57,10 @@ STATUS_FIXED = {"8", "12", "16"}   # 固定占用（16 只有预计时长>0 才�
 DEFAULT_WINDOW_VISIBLE = "08:30:00-17:30:00"
 DEFAULT_WINDOW_INFRARED = "05:00:00-08:00:00;19:00:00-22:00:00"
 
+# ---- 规则排不下时的产品强排时段 ----
+FORCE_WINDOW_VISIBLE = (16 * 3600 + 30 * 60, 17 * 3600 + 30 * 60)
+FORCE_WINDOW_INFRARED = (21 * 3600, 22 * 3600)
+
 # ---- 变电可见光必须 08:30 开始（文档 临时§六）----
 SMS_VISIBLE_START = 8 * 3600 + 30 * 60
 
@@ -262,6 +266,14 @@ class Calendar:
 
     def occupants(self, day: str) -> list[str]:
         return [g for g, slot in self.slots.items() if slot["date"] == day]
+
+    def overlapping_occupants(self, day: str, start: int, end: int) -> list[str]:
+        return [
+            guid for guid, slot in self.slots.items()
+            if slot["date"] == day
+            and any(frag_start < end and frag_end > start
+                    for frag_start, frag_end in slot["frags"])
+        ]
 
     def load_seconds(self, day: str) -> int:
         return sum(slot["seconds"] for slot in self.slots.values() if slot["date"] == day)
@@ -534,10 +546,17 @@ class ForceProposal:
     protected_holders: list[str] = field(default_factory=list)
     affected_orders: list[dict] = field(default_factory=list)   # 直接+间接受影响的计划与工单
     update_proposals: list[str] = field(default_factory=list)    # 拟更新 guid 清单
+    feasible: bool = False
+    proposed_start: Optional[str] = None
+    proposed_end: Optional[str] = None
+    force_time_period: Optional[str] = None
+    relaxed_rules: list[str] = field(default_factory=list)
+    recommendation_reason: str = ""
 
 
-def _force_impact(sched: Scheduler, order: dict) -> tuple[list[dict], list[str]]:
-    """强插影响链（FR07）：直接占用者 + 其可重排时引发的间接占用者。"""
+def _force_impact(sched: Scheduler, order: dict, day: str,
+                  slot_start: int, slot_end: int) -> tuple[list[dict], list[str]]:
+    """按具体强排时段计算直接占用者；强排本身不修改旧工单。"""
     affected: dict[str, dict] = {}
 
     def add(guid: str, relation: str) -> None:
@@ -551,53 +570,62 @@ def _force_impact(sched: Scheduler, order: dict) -> tuple[list[dict], list[str]]
             "relation": relation,
         }
 
-    start, end = movable_window(order, sched.window_start, sched.window_end)
-    direct: list[str] = []
-    for day in iter_days(start, end):
-        direct.extend(sched.calendar(order["airport"]).occupants(day))
+    direct = sched.calendar(order["airport"]).overlapping_occupants(
+        day, slot_start, slot_end)
     for guid in direct:
         add(guid, "direct")
-
-    # 被抢占的直接占用者若可重排，会再引发下一层占用 → 间接影响
-    indirect_windows = []
-    for guid in [g for g, v in affected.items() if v["relation"] == "direct"]:
-        holder = sched.orders.get(guid)
-        if holder is None or guid not in sched.reworkable_guids:
-            continue
-        hs, he = movable_window(holder, sched.window_start, sched.window_end)
-        indirect_windows.append((hs, he, guid))
-    for hs, he, mover in indirect_windows:
-        for day in iter_days(hs, he):
-            for guid in sched.calendar(sched.orders[mover]["airport"]).occupants(day):
-                # 只有可重排的才列入「拟更新」
-                add(guid, "indirect")
-
-    update = [guid for guid in affected if guid in sched.reworkable_guids]
-    return list(affected.values()), update
+    return list(affected.values()), []
 
 
 def build_force_proposals(sched: Scheduler, unplaced: list[dict]) -> list[ForceProposal]:
-    """强插建议：只有规则内排不下时产出，且不越过受保护占用（FR07）。"""
+    """为规则内排不下的工单生成按日均摊的具体强排方案。"""
     proposals: list[ForceProposal] = []
+    daily_counts: dict[tuple[str, bool, str], int] = {}
     for order in unplaced:
-        limit = effective_limit(order)
-        if order["seconds"] > limit:
+        window_start, window_end = movable_window(
+            order, sched.window_start, sched.window_end)
+        days = [day for day in iter_days(window_start, window_end) if not sched._skip(day)]
+        if not days:
             proposals.append(ForceProposal(
                 order_guid=order["guid"], work_order_no=order.get("work_order_no") or "",
-                reason=f"预计时长 {order['seconds']}s 超过单日容量 {limit}s，改需求或拆分"))
+                reason="允许日期内没有可执行日期",
+                recommendation_reason="当前日期范围内没有满足日历约束的候选日期，请修改巡检时间。"))
             continue
-        start, end = movable_window(order, sched.window_start, sched.window_end)
-        holders: list[str] = []
-        for day in iter_days(start, end):
-            holders.extend(sched.calendar(order["airport"]).occupants(day))
-        unique = sorted(set(holders))
-        affected, update = _force_impact(sched, order)
+
+        infrared = is_airport_infrared(order.get("work_nature_sub") or "")
+        slot_start, slot_end = (
+            FORCE_WINDOW_INFRARED if infrared else FORCE_WINDOW_VISIBLE)
+        day = min(
+            days,
+            key=lambda value: (daily_counts.get((order["airport"], infrared, value), 0), value),
+        )
+        count_key = (order["airport"], infrared, day)
+        daily_counts[count_key] = daily_counts.get(count_key, 0) + 1
+        proposed_start = dt_str(seconds_to_dt(day, slot_start))
+        proposed_end = dt_str(seconds_to_dt(day, slot_end))
+        affected, update = _force_impact(
+            sched, order, day, slot_start, slot_end)
+        holders = sorted(a["work_order_guid"] for a in affected)
+        relaxed = ["忽略日配额限制", "允许与已有工单时段重叠"]
+        kind = "红外" if infrared else "可见光"
         proposals.append(ForceProposal(
             order_guid=order["guid"], work_order_no=order.get("work_order_no") or "",
-            reason="规则内无可行窗口",
-            protected_holders=unique,
+            reason="规则排班无可行窗口，已生成强排候选时段",
+            protected_holders=holders,
             affected_orders=affected,
-            update_proposals=update))
+            update_proposals=update,
+            feasible=True,
+            proposed_start=proposed_start,
+            proposed_end=proposed_end,
+            force_time_period=("21:00:00-22:00:00" if infrared
+                               else "16:30:00-17:30:00"),
+            relaxed_rules=relaxed,
+            recommendation_reason=(
+                f"该工单为{kind}任务；在允许日期内按各日强排数量最少优先，"
+                f"均摊至 {day} 的产品默认{kind}强排时段。"
+                f"该时段影响 {len(affected)} 张已有工单，且不调整变电旧工单时间。"
+            ),
+        ))
     return proposals
 
 
@@ -831,11 +859,14 @@ def rework(new_orders: list[dict], old_orders: list[dict],
             result.entry = "insert_rework"
         else:
             result.entry = "force_insert"
+            result.force_proposals = build_force_proposals(sched, still_failed)
+            feasible_guids = {
+                proposal.order_guid for proposal in result.force_proposals if proposal.feasible
+            }
             result.unplaced = [{
                 "work_order_guid": o["guid"], "work_order_no": o.get("work_order_no"),
-                "reason": "规则内无法排妥",
-            } for o in still_failed]
-            result.force_proposals = build_force_proposals(sched, still_failed)
+                "reason": "没有可执行的强排候选日期",
+            } for o in still_failed if o["guid"] not in feasible_guids]
 
     # ---- L7：变更集（被挪动的旧单）
     moved: dict[str, ReworkStep] = {}
@@ -858,13 +889,19 @@ def rework(new_orders: list[dict], old_orders: list[dict],
     # ---- 输出：最终工单两组 ----
     # 新增组：所有新工单（机场 + 人工），带上排定的起止时间；未排下的保持 null
     placed_map = {p["work_order_guid"]: p for p in result.new_placements}
+    force_map = {
+        proposal.order_guid: proposal
+        for proposal in result.force_proposals if proposal.feasible
+    }
     manual_map = {m["work_order_guid"]: m for m in result.manual_schedule}
     new_out: list[dict] = []
     for order in new_airport:
         item = dict(order.get("raw") or order)
         p = placed_map.get(order["guid"])
-        item["start_date"] = p["start"] if p else None
-        item["end_date"] = p["end"] if p else None
+        force = force_map.get(order["guid"])
+        item["start_date"] = p["start"] if p else (force.proposed_start if force else None)
+        item["end_date"] = p["end"] if p else (force.proposed_end if force else None)
+        item["force_inserted"] = bool(force)
         new_out.append(item)
     for order in new_manual:
         item = dict(order.get("raw") or order)

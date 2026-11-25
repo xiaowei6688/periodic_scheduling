@@ -137,6 +137,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
     airport_orders = [o for o in orders if str(o.get("inspectionMethod")) == "1"]
     manual_orders = [o for o in orders if str(o.get("inspectionMethod")) == "2"]
     scheduled = [o for o in orders if o.get("startDate") and o.get("endDate")]
+    forced = [o for o in orders if o.get("forceInserted")]
     unplaced = [o for o in orders if not o.get("startDate") or not o.get("endDate")]
     plans = [
         plan
@@ -190,6 +191,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "manualDevices": _device_count(manual_orders),
         "manualPlans": len(manual_plan_ids),
         "scheduled": len(scheduled),
+        "forced": len(forced),
         "airportScheduled": sum(
             bool(o.get("startDate") and o.get("endDate")) for o in airport_orders
         ),
@@ -227,6 +229,34 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
     )
 
     if is_force_insert:
+        proposals = [
+            proposal for proposal in result.get("forceProposals") or []
+            if proposal.get("feasible")
+        ]
+        visible_proposals = [
+            proposal for proposal in proposals
+            if proposal.get("forceTimePeriod") == "16:30:00-17:30:00"
+        ]
+        infrared_proposals = [
+            proposal for proposal in proposals
+            if proposal.get("forceTimePeriod") == "21:00:00-22:00:00"
+        ]
+        proposal_dates = sorted({
+            str(proposal.get("proposedStartDate") or "")[:10]
+            for proposal in proposals if proposal.get("proposedStartDate")
+        })
+        force_parts = []
+        if visible_proposals:
+            force_parts.append(
+                f"可见光 {len(visible_proposals)} 张安排在每日 16:30-17:30")
+        if infrared_proposals:
+            force_parts.append(
+                f"红外 {len(infrared_proposals)} 张安排在每日 21:00-22:00")
+        force_schedule_note = "；".join(force_parts) or "当前没有可执行的强排候选时段"
+        date_note = "、".join(proposal_dates) if proposal_dates else "无候选日期"
+        conflict_count = sum(
+            len(proposal.get("affectedOrders") or []) for proposal in proposals
+        )
         summary_lines = [
             (
                 f"已校对 {counts['planTotal']} 个计划。新增工单按执行方式分流为："
@@ -234,13 +264,19 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
                 f"人工 {counts['manualDevices']} 基、{counts['manual']} 张工单。"
             ),
             (
-                f"巡检日期为 {range_text}。规则排班已安排 {counts['scheduled']} 张，"
-                f"仍有 {counts['unplaced']} 张未排入，因此不能直接按规则创建。"
+                f"巡检日期为 {range_text}。规则排班完成 "
+                f"{counts['newTotal'] - counts['forced'] - counts['unplaced']} 张；"
+                f"另有 {counts['forced']} 张已生成强排候选时间，"
+                f"真正无候选时间的工单 {counts['unplaced']} 张。"
             ),
             (
-                f"当前强插方案将直接影响 {counts['directAffected']} 张、间接影响 "
-                f"{counts['indirectAffected']} 张旧工单，并拟更新 {counts['oldUpdates']} 张旧工单。"
-                "确认前请核对影响关系、旧工单调整明细和未排入工单。"
+                f"强排建议：{force_schedule_note}；候选日期为 {date_note}。"
+                "工单按专业优先级进入强排队列，并在各自允许日期内按每日强排数量最少优先均摊。"
+            ),
+            (
+                f"候选时段与 {conflict_count} 张已有工单发生时间重叠；"
+                "变电旧工单时间保持不变，强排不会擅自修改任何旧工单。"
+                "每张工单的推荐日期、影响对象和推荐原因请在强排方案中核对。"
             ),
             warning_note,
             "详细排期可以在左侧“排期方案”页签查看，影响关系和旧工单调整明细可以在左侧“受影响工单”页签核对。",
@@ -249,6 +285,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         variant = "force_insert"
         title = "确认强插"
         approve_label = "确认强插"
+        modify_label = "修改时间"
         reject_label = "取消"
     elif is_reworked:
         if round_counts and len(set(round_counts)) == 1:
@@ -285,6 +322,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         variant = "reworked"
         title = "确认创建并更新旧单"
         approve_label = "确认创建并更新旧单"
+        modify_label = None
         reject_label = "取消"
     else:
         old_order_note = (
@@ -315,6 +353,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         variant = "ready"
         title = "确认创建机场与人工工单"
         approve_label = "确认创建机场与人工工单"
+        modify_label = None
         reject_label = "取消"
 
     return {
@@ -327,6 +366,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "airportScheduleRange": airport_schedule_range,
         "counts": counts,
         "approveLabel": approve_label,
+        "modifyLabel": modify_label,
         "rejectLabel": reject_label,
     }
 
