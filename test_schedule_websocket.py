@@ -107,6 +107,7 @@ class TestScheduleWebSocket(unittest.TestCase):
         html = CHAT_HTML_FILE.read_text(encoding="utf-8")
         self.assertIn("displayArguments?.['确认视图']", html)
         self.assertIn("confirmationView?.approveLabel", html)
+        self.assertIn("confirmationView?.modifyLabel", html)
         self.assertIn("confirmationView?.rejectLabel", html)
 
     def test_page_debug_payload_can_embed_mock_existing_rows(self):

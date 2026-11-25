@@ -9,6 +9,7 @@ from core.approval import ApprovalDecision
 from core.artifacts import MemoryArtifactStore, bind_artifact_store, materialize_artifact_delivery
 from core.builder import GraphBuilder
 from core.config import Settings
+from core.steps import SyncStepTracker
 from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_store
 from core.registry import AgentRegistry
 from agents.work_order_scheduling.split_and_schedule.tools import (
@@ -199,7 +200,13 @@ class TestAgentTools(unittest.TestCase):
                 },
             ]}]}],
             "impactChains": {"stats": {"directCount": 3, "indirectCount": 6}},
-            "forceProposals": [{"updateProposals": [
+            "forceProposals": [{
+                "feasible": True,
+                "proposedStartDate": "2026-11-13 16:30:00",
+                "proposedEndDate": "2026-11-13 17:30:00",
+                "forceTimePeriod": "16:30:00-17:30:00",
+                "affectedOrders": [{"workOrderGuid": "old-1"}],
+                "updateProposals": [
                 {"work_order_guid": "old-1"},
                 {"work_order_guid": "old-2"},
             ]}],
@@ -207,17 +214,61 @@ class TestAgentTools(unittest.TestCase):
         force_view = _confirmation_view(forced)
         self.assertEqual(force_view["variant"], "force_insert")
         self.assertEqual(force_view["counts"]["scheduled"], 1)
+        self.assertEqual(force_view["counts"]["forced"], 0)
         self.assertEqual(force_view["counts"]["unplaced"], 1)
         self.assertEqual(force_view["counts"]["directAffected"], 3)
         self.assertEqual(force_view["counts"]["indirectAffected"], 6)
         self.assertEqual(force_view["counts"]["oldUpdates"], 2)
         self.assertEqual(force_view["counts"]["airportDevices"], 105)
-        self.assertIn("仍有 1 张未排入", force_view["summary"])
+        self.assertIn("真正无候选时间的工单 1 张", force_view["summary"])
         self.assertIn("直接影响 3 张、间接影响 6 张", force_view["summary"])
         self.assertIn("左侧“受影响工单”页签", force_view["summary"])
         self.assertEqual(force_view["title"], "确认强插")
         self.assertEqual(force_view["approveLabel"], "确认强插")
+        self.assertEqual(force_view["modifyLabel"], "修改时间")
         self.assertEqual(force_view["rejectLabel"], "取消")
+
+    def test_request_tool_emits_five_business_steps(self):
+        state = MemoryWorkflowStateStore()
+        payload = {**self.payload, "mockExistingRows": []}
+        state.save("thread-1", "work_order_schedule", "request-1", {
+            "payload": payload,
+            "enforce_quota": True,
+            "skip_weekdays": None,
+            "holidays": None,
+        })
+        artifacts = MemoryArtifactStore()
+        bound = bind_artifact_store(
+            bind_workflow_state_store(schedule_work_orders_from_request, state),
+            artifacts,
+            "split_and_schedule",
+        )
+        events = []
+        tracker = SyncStepTracker(events.append, thread_id="thread-1")
+        run_id = artifacts.begin_run("thread-1")
+        bound.invoke(
+            {"request_id": "request-1"},
+            config={
+                "callbacks": [tracker],
+                "configurable": {
+                    "thread_id": "thread-1", "artifact_run_id": run_id,
+                },
+            },
+        )
+        started = [event.title for event in events
+                   if event.status == "in_progress"]
+        completed = [event.title for event in events
+                     if event.status == "completed"]
+        expected = [
+            "校验并拆分巡检计划",
+            "获取并筛选已有工单",
+            "执行工单排班规则",
+            "判定排班结果",
+            "整理排班方案",
+        ]
+        self.assertEqual(started, expected)
+        self.assertEqual(completed, expected)
+        self.assertNotIn("工单排班", started)
 
     def test_confirmation_view_matches_prd_reworked_summary(self):
         airport_orders = [{

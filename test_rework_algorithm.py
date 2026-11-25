@@ -219,7 +219,9 @@ class TestLayer456(unittest.TestCase):
         new = [new_order("C", 16200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
         result = rework(new, old, *window, enforce_quota=False)
         self.assertEqual(result.entry, "force_insert")
-        self.assertEqual(len(result.unplaced), 1)
+        self.assertEqual(len(result.unplaced), 0)
+        self.assertEqual(len(result.force_proposals), 1)
+        self.assertTrue(result.force_proposals[0].feasible)
 
 
 class TestLayer67(unittest.TestCase):
@@ -301,15 +303,16 @@ class TestFinalOutput(unittest.TestCase):
         self.assertEqual(set(d), {"work_order_guid", "work_order_no", "start_date", "end_date"})
         self.assertTrue(d["start_date"].startswith("2026-12-05"))
 
-    def test_unplaced_new_keeps_null_times(self):
+    def test_force_candidate_carries_proposed_times(self):
         window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
         old = [old_order("f", 32400, "2026-12-01 08:30:00", "2026-12-01 17:30:00", "8")]
         new = [new_order("C", 7200, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
         result = rework(new, old, *window, enforce_quota=False)
         c = next(o for o in result.new_orders_out if o["work_order_guid"] == "C")
-        self.assertIsNone(c["start_date"])
-        self.assertIsNone(c["end_date"])
-        self.assertEqual(len(result.unplaced), 1)
+        self.assertEqual(c["start_date"], "2026-12-01 16:30:00")
+        self.assertEqual(c["end_date"], "2026-12-01 17:30:00")
+        self.assertTrue(c["force_inserted"])
+        self.assertEqual(result.unplaced, [])
 
     def test_rework_default_enforces_quota(self):
         # 5h + 2.5h = 7.5h > 80% 配额 6.4h → 默认配额约束下排不进
@@ -318,7 +321,68 @@ class TestFinalOutput(unittest.TestCase):
         new = [new_order("C", 9000, "2026-12-01 00:00:00", "2026-12-01 23:59:59")]
         result = rework(new, old, *window)
         self.assertEqual(result.entry, "force_insert")
+        self.assertEqual(len(result.unplaced), 0)
+        self.assertEqual(result.force_proposals[0].force_time_period,
+                         "16:30:00-17:30:00")
+
+    def test_force_candidates_are_balanced_across_three_days(self):
+        window = ("2026-12-01 00:00:00", "2026-12-03 23:59:59")
+        new = [
+            new_order(
+                f"C{i}", 7200, window[0], window[1],
+                tp="08:30:00-09:30:00",
+            )
+            for i in range(10)
+        ]
+        result = rework(new, [], *window, enforce_quota=False)
+        counts = {}
+        for proposal in result.force_proposals:
+            day = proposal.proposed_start[:10]
+            counts[day] = counts.get(day, 0) + 1
+        self.assertEqual(counts, {
+            "2026-12-01": 4,
+            "2026-12-02": 3,
+            "2026-12-03": 3,
+        })
+        self.assertTrue(all(
+            proposal.force_time_period == "16:30:00-17:30:00"
+            for proposal in result.force_proposals
+        ))
+
+    def test_infrared_force_candidate_uses_night_window(self):
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        order = new_order(
+            "IR", 7200, *window, tp="08:30:00-09:30:00")
+        order["plan"]["workNatureSub"] = "t-hwxs"
+        result = rework([order], [], *window, enforce_quota=False)
+        proposal = result.force_proposals[0]
+        self.assertEqual(proposal.proposed_start, "2026-12-01 21:00:00")
+        self.assertEqual(proposal.proposed_end, "2026-12-01 22:00:00")
+
+    def test_only_no_eligible_date_remains_unplaced(self):
+        window = ("2026-12-01 00:00:00", "2026-12-03 23:59:59")
+        order = new_order(
+            "C", 7200, *window, tp="08:30:00-09:30:00")
+        result = rework(
+            [order], [], *window, enforce_quota=False,
+            holidays=["2026-12-01", "2026-12-02", "2026-12-03"],
+        )
         self.assertEqual(len(result.unplaced), 1)
+        self.assertFalse(result.force_proposals[0].feasible)
+        self.assertIsNone(result.new_orders_out[0]["start_date"])
+
+    def test_force_insert_does_not_move_substation_old_order(self):
+        window = ("2026-12-01 00:00:00", "2026-12-01 23:59:59")
+        old = [old_order(
+            "SMS", 32400, "2026-12-01 08:30:00",
+            "2026-12-01 17:30:00", "9", speciality="sms",
+        )]
+        new = [new_order(
+            "C", 7200, *window, tp="08:30:00-09:30:00")]
+        result = rework(new, old, *window, enforce_quota=False)
+        self.assertEqual(result.entry, "force_insert")
+        self.assertEqual(result.update_orders, [])
+        self.assertEqual(result.changed_old_orders, [])
 
 
 class TestDocRuleGaps(unittest.TestCase):
