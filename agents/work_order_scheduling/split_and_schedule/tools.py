@@ -294,7 +294,7 @@ def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None)
                 "status": "confirmed_for_submission",
                 "scheduleArtifactId": schedule_artifact_id,
                 "confirmationVariant": confirmation["variant"],
-                "message": "已确认提交意向，尚未在业务平台创建工单",
+                "message": "已确认提交意向",
             }
 
         approval = require_approval(
