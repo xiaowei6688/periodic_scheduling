@@ -4,6 +4,7 @@
     "workOrderNo": "MOCK-OLD-FIXED",
     "planGuid": "mock-old-plan-fixed",
     "inspectionMethod": "1",
+    "cycleParentDeviceName": "机场测试线路",
     "cycleAirportGuid": "mock-airport-001",
     "startDate": "2026-12-01 08:30:00",
     "endDate": "2026-12-01 09:30:00",

@@ -84,7 +84,15 @@ class TestPipeline(unittest.TestCase):
                 "end_date": "2026-11-21 09:30:00",
                 "pre_start_date": "2026-11-21 00:00:00",
                 "pre_end_date": "2026-11-22 23:59:59",
-                "raw": {"workOrderGuid": "B", "workOrderNo": "ZQ-B"},
+                "raw": {
+                    "workOrderGuid": "B", "workOrderNo": "ZQ-B",
+                    "planGuid": "old-plan-b", "planNo": "OLD-PLAN-B",
+                    "planSetName": "旧计划集B", "cycleParentDeviceName": "黄新线",
+                    "professionalCategory": "tms", "workNature": "2",
+                    "workNatureSub": "t-rcxs", "equipName": "昔岭机场",
+                    "cycleAirportGuid": "ap-a", "secondNum": 3600,
+                    "workOrderStatus": "9", "timePeriod": "08:30:00-17:30:00",
+                },
             },
             {
                 "work_order_guid": "D",
@@ -121,6 +129,12 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(len(chains["list"][0]["nodes"]), 2)
         self.assertEqual(chains["list"][0]["nodes"][1]["round"], 2)
         self.assertEqual(chains["list"][0]["nodes"][1]["relation"], "indirect")
+        chain = chains["list"][0]
+        self.assertEqual(chain["planStartDate"], None)
+        self.assertEqual(chain["nodes"][0]["jobObject"], "黄新线")
+        self.assertEqual(chain["nodes"][0]["professionalCategoryZh"], "输电")
+        self.assertEqual(chain["nodes"][0]["workNatureZh"], "通道")
+        self.assertEqual(chain["nodes"][0]["resultDesc"], "继续影响下一张旧单")
 
     def test_full_flow_offline(self):
         out = run_pipeline(load_payload(), [raw_order("old-1")])
@@ -135,6 +149,32 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(sum(len(o.get("details", [])) for o in new_orders), 78)
         self.assertEqual(len(out["oldWorkOrders"]), 1)
         self.assertIn(out["entry"], {"normal", "insert_rework", "force_insert"})
+
+    def test_old_order_output_preserves_non_time_fields(self):
+        payload = json.loads(
+            (APPROVAL_SCENARIOS_DIR / "reworked_full.json").read_text(encoding="utf-8"))
+        payload["mockExistingRows"][0]["cycleParentDeviceName"] = "黄新线"
+        result = run_pipeline(payload, payload["mockExistingRows"], enforce_quota=False)
+
+        old = result["oldWorkOrders"][0]
+        self.assertEqual(old["jobObject"], "黄新线")
+        self.assertEqual(old["workObjName"], "黄新线")
+        self.assertEqual(old["cycleAirportGuid"], "mock-airport-001")
+        self.assertEqual(old["preStartDate"], "2026-12-01 00:00:00")
+        self.assertEqual(old["preEndDate"], "2026-12-02 23:59:59")
+        self.assertEqual(old["timePeriod"], "08:30:00-09:30:00")
+        self.assertNotEqual(old["oldStartDate"], old["startDate"])
+
+        chain = result["impactChains"]["list"][0]
+        self.assertEqual(chain["planStartDate"], "2026-12-01 00:00:00")
+        self.assertEqual(chain["planEndDate"], "2026-12-01 23:59:59")
+        self.assertEqual(chain["timePeriod"], "08:30:00-09:30:00")
+        self.assertEqual(chain["preStartDate"], chain["planStartDate"])
+        self.assertEqual(chain["preEndDate"], chain["planEndDate"])
+        self.assertEqual(chain["rootWorkOrderGuid"], chain["nodes"][0]["preemptedBy"])
+        self.assertEqual(chain["nodes"][0]["jobObject"], "黄新线")
+        self.assertEqual(chain["nodes"][0]["resultDesc"], "继续影响下一张旧单")
+        self.assertEqual(chain["nodes"][1]["resultDesc"], "已排妥")
 
     def test_conservation_failure_raises(self):
         # 设备凭空重复 -> verify 不通过 -> 整个流程必须拒绝向下走

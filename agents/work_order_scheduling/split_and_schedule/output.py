@@ -139,6 +139,23 @@ def _impact_chains(payload: dict, pending, result) -> dict:
         current["nodes"].append({
             "guid": step.moved_guid,
             "no": raw.get("workOrderNo") or step.moved_guid,
+            "planSetName": raw.get("planSetName"),
+            "planGuid": raw.get("planGuid"),
+            "planNo": raw.get("planNo"),
+            "jobObject": raw.get("cycleParentDeviceName") or raw.get("jobObject"),
+            "workObjName": raw.get("cycleParentDeviceName") or raw.get("workObjName"),
+            "professionalCategory": raw.get("professionalCategory"),
+            "professionalCategoryZh": PROFESSION_ZH.get(
+                raw.get("professionalCategory"), raw.get("professionalCategory") or ""),
+            "workNature": raw.get("workNature"),
+            "workNatureZh": WORK_NATURE_ZH.get(
+                str(raw.get("workNature")), raw.get("workNature") or ""),
+            "dayOrNightZh": (
+                "红外" if (raw.get("workNatureSub") or "") in INFRARED_SUBS else "可见光"),
+            "equipName": raw.get("equipName"),
+            "cycleAirportGuid": raw.get("cycleAirportGuid"),
+            "secondNum": raw.get("secondNum"),
+            "workOrderStatus": raw.get("workOrderStatus"),
             "preemptedBy": step.preempted_by,
             "oldStartDate": step.old_start,
             "oldEndDate": step.old_end,
@@ -146,6 +163,7 @@ def _impact_chains(payload: dict, pending, result) -> dict:
             "endDate": step.new_end,
             "allowedStartDate": allowed_start,
             "allowedEndDate": allowed_end,
+            "timePeriod": normalized.get("time_period") or raw.get("timePeriod"),
             "withinAllowedRange": within_allowed,
         })
 
@@ -154,18 +172,26 @@ def _impact_chains(payload: dict, pending, result) -> dict:
     for chain in chains:
         root = chain["root"]
         plan = root.get("plan") or {}
+        plan_start = plan.get("preStartDate") or plan.get("cycleStartDate")
+        plan_end = plan.get("preEndDate") or plan.get("cycleEndDate")
         first = chain["nodes"][0] if chain["nodes"] else {"guid": None}
         raw = old_by_guid.get(first["guid"]) or {}
         node_nos = [n["no"] for n in chain["nodes"]][:3]
+        completed = result.entry == "insert_rework" and bool(chain["nodes"])
         nodes = [
             {
                 **node,
                 "round": index,
                 "relation": "direct" if index == 1 else "indirect",
+                "result": "已排妥" if completed else "未排妥",
+                "resultDesc": (
+                    "继续影响下一张旧单"
+                    if index < len(chain["nodes"])
+                    else ("已排妥" if completed else "未排妥")
+                ),
             }
             for index, node in enumerate(chain["nodes"], start=1)
         ]
-        completed = result.entry == "insert_rework" and bool(nodes)
         all_within_allowed = bool(nodes) and all(
             node["withinAllowedRange"] for node in nodes
         )
@@ -176,6 +202,13 @@ def _impact_chains(payload: dict, pending, result) -> dict:
             "workObjName": raw.get("equipName") or plan.get("jobObject"),
             "planGuid": plan.get("planGuid"),
             "planNo": plan.get("planNo"),
+            "planStartDate": plan_start,
+            "planEndDate": plan_end,
+            "timePeriod": plan.get("timePeriod"),
+            "scheduledStartDate": root.get("start_date"),
+            "scheduledEndDate": root.get("end_date"),
+            "rootWorkOrderGuid": root.get("work_order_guid"),
+            "rootWorkOrderNo": root.get("work_order_no"),
             "workOrderGuid": raw.get("workOrderGuid") or first["guid"],
             "workOrderNo": raw.get("workOrderNo"),
             "cycleAirportGuid": raw.get("cycleAirportGuid"),
@@ -183,8 +216,8 @@ def _impact_chains(payload: dict, pending, result) -> dict:
             "workOrderStatus": raw.get("workOrderStatus"),
             "startDate": raw.get("startDate"),
             "endDate": raw.get("endDate"),
-            "preStartDate": raw.get("startDate"),
-            "preEndDate": raw.get("endDate"),
+            "preStartDate": plan_start,
+            "preEndDate": plan_end,
             "firstWorkOrderNo": node_nos[0] if len(node_nos) >= 1 else None,
             "secondWorkOrderNo": node_nos[1] if len(node_nos) >= 2 else None,
             "thirdWorkOrderNo": node_nos[2] if len(node_nos) >= 3 else None,
@@ -318,13 +351,17 @@ def _build_output(payload: dict, pending, result) -> dict:
             desc_type = ""
             result_txt = result_desc = "未调整"
 
-        cycle_airport = (update.get("cycle_airport_guid") if update else raw.get("cycleAirportGuid"))
+        job_object = (
+            raw.get("cycleParentDeviceName")
+            or raw.get("jobObject")
+            or plan.get("jobObject")
+        )
 
         old_orders_out.append({
             "planSetName": plan_set_name,
-            "jobObject": plan.get("jobObject"),
-            "frequency": plan.get("inspectionFrequency"),
-            "workObjName": raw.get("equipName") or plan.get("jobObject"),
+            "jobObject": job_object,
+            "frequency": raw.get("inspectionFrequency") or plan.get("inspectionFrequency"),
+            "workObjName": raw.get("workObjName") or job_object,
             "planGuid": raw.get("planGuid"),
             "planNo": plan_no,
             "workOrderGuid": guid,
@@ -337,9 +374,12 @@ def _build_output(payload: dict, pending, result) -> dict:
             "desc": desc,
             "descType": desc_type,
             "equipName": raw.get("equipName"),
-            "cycleAirportGuid": cycle_airport,
+            "cycleAirportGuid": raw.get("cycleAirportGuid"),
             "secondNum": raw.get("secondNum"),
             "workOrderStatus": raw.get("workOrderStatus"),
+            "preStartDate": raw.get("preStartDate"),
+            "preEndDate": raw.get("preEndDate"),
+            "timePeriod": raw.get("timePeriod"),
             "oldStartDate": old_start,
             "oldEndDate": old_end,
             "startDate": start_date,
