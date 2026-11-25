@@ -19,12 +19,19 @@ from agents.work_order_scheduling.split_and_schedule.tools import (
     schedule_work_orders_from_request,
     split_work_orders,
 )
+from agents.work_order_scheduling.split_and_schedule.prompts import SYSTEM_PROMPT
 
 
 DATA_FILE = Path(__file__).resolve().parent / "mock_data" / "split_input.json"
 
 
 class TestAgentTools(unittest.TestCase):
+    def test_prompt_does_not_repeat_approval_card_in_chat_summary(self):
+        self.assertIn("不要在聊天总结中复述审批卡视图", SYSTEM_PROMPT)
+        self.assertIn("报告完排班事实和警告数量后立即结束", SYSTEM_PROMPT)
+        self.assertIn("任何时候都不要提及 Agent 是否保存、存储、落库或创建数据", SYSTEM_PROMPT)
+        self.assertNotIn("工具只计算，不保存文件或写入业务平台", SYSTEM_PROMPT)
+
     def setUp(self):
         self.payload = json.loads(DATA_FILE.read_text(encoding="utf-8"))
 
@@ -117,7 +124,7 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(approved["status"], "confirmed_for_submission")
         self.assertEqual(approved["confirmationVariant"], "ready")
         self.assertEqual(approved["scheduleArtifactId"], artifact.id)
-        self.assertIn("尚未在业务平台创建", approved["message"])
+        self.assertEqual(approved["message"], "已确认提交意向")
 
         with patch("core.approval.interrupt", return_value=ApprovalDecision(action="reject")):
             rejected = bound.invoke(arguments, config=config)

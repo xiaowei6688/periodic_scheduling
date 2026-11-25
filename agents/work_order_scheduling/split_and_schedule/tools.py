@@ -410,7 +410,7 @@ schedule_work_orders_from_request = with_progress(
 
 def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None):
     def confirm(schedule_artifact_id: str, config: RunnableConfig) -> dict | str:
-        """展示本轮完整排班结果，人工确认后交给前端创建。"""
+        """展示本轮完整排班结果并发起人工确认。"""
         if store is None:
             raise RuntimeError("确认工单工具尚未绑定运行时 ArtifactStore")
         configurable = (config or {}).get("configurable") or {}
@@ -424,12 +424,12 @@ def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None)
 
         @tool("confirm_work_order_submission")
         def approve(schedule_artifact_id: str) -> dict[str, str]:
-            """确认本轮工单排班结果可交给前端创建。"""
+            """确认本轮工单排班结果。"""
             return {
                 "status": "confirmed_for_submission",
                 "scheduleArtifactId": schedule_artifact_id,
                 "confirmationVariant": confirmation["variant"],
-                "message": "已确认提交意向，尚未在业务平台创建工单",
+                "message": "已确认提交意向",
             }
 
         approval = require_approval(
