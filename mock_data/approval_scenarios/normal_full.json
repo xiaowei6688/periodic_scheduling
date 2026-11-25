@@ -1,0 +1,17 @@
+{
+  "planSetInfo": {"planSetGuid": "mock-normal-plan-set", "planSetName": "场景一：全部排妥"},
+  "planStrategyList": [
+    {
+      "planStrategyGuid": "mock-airport-strategy",
+      "deviceList": [{"jobObjectGuid": "mock-line-airport", "jobObjectName": "机场测试线路", "jobObjectDeviceGuid": "mock-tower-airport-001", "jobObjectDeviceName": "机场测试杆塔001", "towerBranchName": "1", "sort": 1, "coveringAirports": "mock-airport-001", "filter": 0, "filterTd": 0, "span": 500}],
+      "planList": [{"planGuid": "mock-plan-airport", "planStrategyGuid": "mock-airport-strategy", "planNo": "MOCK-PLAN-AIRPORT", "jobObjectGuid": "mock-line-airport", "jobObject": "机场测试线路", "speciality": "tms", "workNature": "1", "workNatureSub": "t-rcxs", "voltageLevel": "AC110kV", "oneDay": 1, "cycleCnt": 1, "cycleStartDate": "2026-12-01 00:00:00", "cycleEndDate": "2026-12-01 23:59:59", "preStartDate": "2026-12-01 00:00:00", "preEndDate": "2026-12-01 23:59:59", "timePeriod": "08:30:00-09:30:00", "inspectionFrequency": "单次"}]
+    },
+    {
+      "planStrategyGuid": "mock-manual-strategy",
+      "deviceList": [{"jobObjectGuid": "mock-line-manual", "jobObjectName": "人工测试线路", "jobObjectDeviceGuid": "mock-tower-manual-001", "jobObjectDeviceName": "人工测试杆塔001", "towerBranchName": "1", "sort": 1, "coveringAirports": "", "filter": 0, "filterTd": 0, "span": 500}],
+      "planList": [{"planGuid": "mock-plan-manual", "planStrategyGuid": "mock-manual-strategy", "planNo": "MOCK-PLAN-MANUAL", "jobObjectGuid": "mock-line-manual", "jobObject": "人工测试线路", "speciality": "tms", "workNature": "1", "workNatureSub": "t-rcxs", "voltageLevel": "AC110kV", "oneDay": 1, "cycleCnt": 1, "cycleStartDate": "2026-12-01 00:00:00", "cycleEndDate": "2026-12-03 23:59:59", "preStartDate": "2026-12-01 00:00:00", "preEndDate": "2026-12-03 23:59:59", "timePeriod": "08:30:00-17:30:00", "inspectionFrequency": "单次"}]
+    }
+  ],
+  "airports": [{"airportGuid": "mock-airport-001", "airportName": "测试机场001", "airportSn": "MOCK-SN-001", "airportModel": "jc_03"}],
+  "mockExistingRows": []
+}

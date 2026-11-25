@@ -360,8 +360,9 @@
         card.append(fields);
       }
       const actions = document.createElement('div'); actions.className = 'approval-actions';
-      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = isScheduleApproval ? '确定创建机场与人工工单' : '通过';
-      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = isScheduleApproval ? '暂不提交' : '拒绝';
+      const confirmationView = isScheduleApproval ? displayArguments?.['确认视图'] : null;
+      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = confirmationView?.approveLabel || (isScheduleApproval ? '确定创建机场与人工工单' : '通过');
+      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = confirmationView?.rejectLabel || (isScheduleApproval ? '暂不提交' : '拒绝');
       actions.append(approve, reject); card.append(detail, actions); group.content.append(card); scrollDown();
       const collectValues = () => {
         const values = {};

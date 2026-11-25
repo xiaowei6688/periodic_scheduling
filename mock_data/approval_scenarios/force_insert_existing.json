@@ -1,0 +1,26 @@
+[
+  {
+    "workOrderGuid": "mock-old-fixed",
+    "workOrderNo": "MOCK-OLD-FIXED",
+    "planGuid": "mock-old-plan-fixed",
+    "inspectionMethod": "1",
+    "cycleAirportGuid": "mock-airport-001",
+    "startDate": "2026-12-01 08:30:00",
+    "endDate": "2026-12-01 09:30:00",
+    "preStartDate": "2026-12-01 00:00:00",
+    "preEndDate": "2026-12-01 23:59:59",
+    "timePeriod": "08:30:00-09:30:00",
+    "secondNum": 3600,
+    "workOrderStatus": "8",
+    "orderSource": "5",
+    "airportModel": "jc_03",
+    "professionalCategory": "tms",
+    "workNature": "1",
+    "workNatureSub": "t-rcxs",
+    "cycleVoltageLevel": "AC110kV",
+    "oneDay": 1,
+    "equipName": "测试机场001",
+    "planSetName": "受保护旧计划集",
+    "planNo": "MOCK-OLD-PLAN-FIXED"
+  }
+]

@@ -13,7 +13,9 @@ wheels/
 .venv
 .core
 .uv_cache
-mock_data
+mock_data/*
+!mock_data/approval_scenarios/
+!mock_data/approval_scenarios/**
 out
 build_mock.py
 .env

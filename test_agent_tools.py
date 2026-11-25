@@ -110,7 +110,7 @@ class TestAgentTools(unittest.TestCase):
         view = request["display_arguments"]["确认视图"]
         self.assertEqual(view["variant"], "ready")
         self.assertEqual(view["approveLabel"], "确认创建机场与人工工单")
-        self.assertEqual(view["rejectLabel"], "暂不提交")
+        self.assertEqual(view["rejectLabel"], "取消")
         self.assertIn("新工单 0 张", request["display_arguments"]["排班摘要"])
         self.assertEqual(request["display_arguments"]["完整组装结果"],
                          store.get("test-thread", artifact.id)[1])
@@ -131,6 +131,7 @@ class TestAgentTools(unittest.TestCase):
     def test_confirmation_view_distinguishes_rework_and_force_insert(self):
         scheduled_airport = {
             "inspectionMethod": "1",
+            "parentDeviceNum": 80,
             "cycleStartDate": "2026-11-12 00:00:00",
             "cycleEndDate": "2026-11-14 23:59:59",
             "startDate": "2026-11-12 08:30:00",
@@ -141,6 +142,8 @@ class TestAgentTools(unittest.TestCase):
                 scheduled_airport,
                 {
                     "inspectionMethod": "2",
+                    "parentDeviceNum": 20,
+                    "planGuid": "plan-manual-1",
                     "cycleStartDate": "2026-11-12 00:00:00",
                     "cycleEndDate": "2026-11-14 23:59:59",
                     "startDate": "2026-11-12 00:00:00",
@@ -148,24 +151,45 @@ class TestAgentTools(unittest.TestCase):
                 },
             ]}]}],
             "oldWorkOrders": [{"workOrderGuid": "old-1", "result": "已排妥"}],
-            "impactChains": {"stats": {"directCount": 1, "indirectCount": 0}},
+            "impactChains": {"stats": {
+                "chainCount": 1, "directCount": 1, "indirectCount": 0,
+                "updatedOldCount": 1, "totalRounds": 1, "roundCounts": [1],
+                "allChainsCompleted": True, "allPlacedWithinWindow": True,
+            }},
             "entry": "insertRework",
             "forceProposals": [],
         }
         ready = _confirmation_view(reworked)
-        self.assertEqual(ready["variant"], "ready")
+        self.assertEqual(ready["variant"], "reworked")
+        self.assertEqual(ready["title"], "确认创建并更新旧单")
+        self.assertEqual(ready["approveLabel"], "确认创建并更新旧单")
+        self.assertEqual(ready["rejectLabel"], "取消")
         self.assertEqual(ready["inspectionRange"], {
             "start": "2026-11-12", "end": "2026-11-14",
         })
         self.assertEqual(ready["counts"]["oldUpdates"], 1)
-        self.assertIn("已调整 1 张旧工单", ready["summary"])
+        self.assertEqual(ready["counts"]["airportDevices"], 80)
+        self.assertEqual(ready["counts"]["manualDevices"], 20)
+        self.assertEqual(ready["counts"]["manualPlans"], 1)
+        self.assertEqual(ready["airportScheduleRange"], {
+            "start": "2026-11-12", "end": "2026-11-12",
+        })
+        self.assertEqual(len(ready["summaryLines"]), 4)
+        self.assertIn("1 条影响链各完成 1 轮重排", ready["summary"])
+        self.assertIn("1 张旧工单均已在自身允许范围内排妥", ready["summary"])
+        self.assertIn("左侧“排期方案”页签", ready["summary"])
+        self.assertIn("左侧“受影响工单”页签", ready["summary"])
+        self.assertIn("左侧底部的“修改需求”", ready["summary"])
 
         forced = {
             **reworked,
             "entry": "forceInsert",
             "planStrategyList": [{"planList": [{"workOrders": [
                 scheduled_airport,
-                {"inspectionMethod": "1", "startDate": None, "endDate": None},
+                {
+                    "inspectionMethod": "1", "parentDeviceNum": 25,
+                    "startDate": None, "endDate": None,
+                },
             ]}]}],
             "impactChains": {"stats": {"directCount": 3, "indirectCount": 6}},
             "forceProposals": [{"updateProposals": [
@@ -180,8 +204,64 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(force_view["counts"]["directAffected"], 3)
         self.assertEqual(force_view["counts"]["indirectAffected"], 6)
         self.assertEqual(force_view["counts"]["oldUpdates"], 2)
-        self.assertEqual(force_view["approveLabel"], "确认强插并创建")
-        self.assertEqual(force_view["rejectLabel"], "放弃创建")
+        self.assertEqual(force_view["counts"]["airportDevices"], 105)
+        self.assertIn("仍有 1 张未排入", force_view["summary"])
+        self.assertIn("直接影响 3 张、间接影响 6 张", force_view["summary"])
+        self.assertIn("左侧“受影响工单”页签", force_view["summary"])
+        self.assertEqual(force_view["title"], "确认强插")
+        self.assertEqual(force_view["approveLabel"], "确认强插")
+        self.assertEqual(force_view["rejectLabel"], "取消")
+
+    def test_confirmation_view_matches_prd_reworked_summary(self):
+        airport_orders = [{
+            "inspectionMethod": "1", "parentDeviceNum": 1,
+            "cycleStartDate": "2026-11-21 00:00:00",
+            "cycleEndDate": "2026-11-22 23:59:59",
+            "startDate": "2026-11-21 08:30:00",
+            "endDate": "2026-11-21 09:30:00",
+        } for _ in range(24)]
+        manual_orders = [{
+            "inspectionMethod": "2", "parentDeviceNum": 1,
+            "planGuid": f"manual-plan-{index}",
+            "cycleStartDate": "2026-11-21 00:00:00",
+            "cycleEndDate": "2026-11-22 23:59:59",
+            "startDate": "2026-11-21 00:00:00",
+            "endDate": "2026-11-22 23:59:59",
+        } for index in range(3)]
+        result = {
+            "planStrategyList": [{"planList": [
+                {"workOrders": airport_orders + manual_orders},
+                *({"workOrders": []} for _ in range(11)),
+            ]}],
+            "oldWorkOrders": [
+                {"workOrderGuid": f"old-{index}", "result": "已排妥"}
+                for index in range(9)
+            ],
+            "impactChains": {"stats": {
+                "chainCount": 3, "directCount": 3, "indirectCount": 6,
+                "updatedOldCount": 9, "totalRounds": 9,
+                "roundCounts": [3, 3, 3],
+                "allChainsCompleted": True, "allPlacedWithinWindow": True,
+            }},
+            "entry": "insertRework", "forceProposals": [], "warnings": [],
+        }
+
+        view = _confirmation_view(result)
+
+        self.assertEqual(view["variant"], "reworked")
+        self.assertEqual(view["sectionTitle"], "本次确认")
+        self.assertIn(
+            "12 个计划已完成排期，拟创建 27 张工单（机场 24 张、人工 3 张）",
+            view["summary"],
+        )
+        self.assertIn("3 条影响链各完成 3 轮重排", view["summary"])
+        self.assertIn("9 张旧工单均已在自身允许范围内排妥", view["summary"])
+        self.assertEqual(view["inspectionRange"], {
+            "start": "2026-11-21", "end": "2026-11-22",
+        })
+        self.assertEqual(view["counts"]["directAffected"], 3)
+        self.assertEqual(view["counts"]["indirectAffected"], 6)
+        self.assertEqual(view["counts"]["oldUpdates"], 9)
 
     def test_request_tool_loads_payload_from_thread_state(self):
         state = MemoryWorkflowStateStore()

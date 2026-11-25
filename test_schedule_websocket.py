@@ -23,6 +23,11 @@ from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_st
 
 
 DATA_FILE = Path(__file__).resolve().parent / "mock_data" / "split_input.json"
+CHAT_HTML_FILE = Path(__file__).resolve().parent / "core" / "static" / "chat.html"
+APPROVAL_DATA_FILE = (
+    Path(__file__).resolve().parent
+    / "mock_data" / "approval_scenarios" / "reworked_full.json"
+)
 
 
 class _Runtime:
@@ -98,6 +103,37 @@ class _Runtime:
 
 
 class TestScheduleWebSocket(unittest.TestCase):
+    def test_schedule_approval_buttons_use_confirmation_view_labels(self):
+        html = CHAT_HTML_FILE.read_text(encoding="utf-8")
+        self.assertIn("displayArguments?.['确认视图']", html)
+        self.assertIn("confirmationView?.approveLabel", html)
+        self.assertIn("confirmationView?.rejectLabel", html)
+
+    def test_page_debug_payload_can_embed_mock_existing_rows(self):
+        runtime = _Runtime()
+        payload = json.loads(APPROVAL_DATA_FILE.read_text(encoding="utf-8"))
+        with patch(
+            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+        ) as fetch:
+            with TestClient(create_app(runtime)) as client:
+                with client.websocket_connect("/v1/chat/ws") as ws:
+                    ws.send_json({
+                        "type": "work_order_schedule",
+                        "thread_id": "schedule-mock-reworked",
+                        "payload": payload,
+                        "enforce_quota": False,
+                    })
+                    while True:
+                        event = ws.receive_json()
+                        if event["type"] in {"done", "error"}:
+                            break
+
+        fetch.assert_not_called()
+        self.assertEqual(event["type"], "done")
+        result = event["artifacts"][0]["data"]
+        self.assertEqual(result["entry"], "insertRework")
+        self.assertEqual(result["impactChains"]["stats"]["roundCounts"], [2])
+
     def test_payload_enters_agent_runtime_and_delivers_artifact(self):
         runtime = _Runtime()
         payload = json.loads(DATA_FILE.read_text(encoding="utf-8"))

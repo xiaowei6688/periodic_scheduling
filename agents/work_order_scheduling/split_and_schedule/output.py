@@ -112,10 +112,12 @@ def _impact_chains(payload: dict, pending, result) -> dict:
     """从 rework_steps 还原「谁影响谁」的影响链，与新/旧工单信息回组。"""
     new_by_guid = {o.get("work_order_guid"): o for o in result.new_orders_out}
     old_by_guid = {}
+    normalized_old_by_guid = {}
     for order in pending.old_orders:
         raw = dict(order.get("raw") or order)
         guid = order.get("work_order_guid") or raw.get("workOrderGuid")
         old_by_guid[guid] = raw
+        normalized_old_by_guid[guid] = order
 
     chains: list[dict] = []
     current = None
@@ -126,9 +128,25 @@ def _impact_chains(payload: dict, pending, result) -> dict:
         if current is None:
             continue
         raw = old_by_guid.get(step.moved_guid) or {}
+        normalized = normalized_old_by_guid.get(step.moved_guid) or {}
+        allowed_start = normalized.get("pre_start_date") or normalized.get("start_date")
+        allowed_end = normalized.get("pre_end_date") or normalized.get("end_date")
+        within_allowed = bool(
+            allowed_start and allowed_end
+            and step.new_start >= allowed_start
+            and step.new_end <= allowed_end
+        )
         current["nodes"].append({
             "guid": step.moved_guid,
             "no": raw.get("workOrderNo") or step.moved_guid,
+            "preemptedBy": step.preempted_by,
+            "oldStartDate": step.old_start,
+            "oldEndDate": step.old_end,
+            "startDate": step.new_start,
+            "endDate": step.new_end,
+            "allowedStartDate": allowed_start,
+            "allowedEndDate": allowed_end,
+            "withinAllowedRange": within_allowed,
         })
 
     plan_set_name = (payload.get("planSetInfo") or {}).get("planSetName")
@@ -139,6 +157,18 @@ def _impact_chains(payload: dict, pending, result) -> dict:
         first = chain["nodes"][0] if chain["nodes"] else {"guid": None}
         raw = old_by_guid.get(first["guid"]) or {}
         node_nos = [n["no"] for n in chain["nodes"]][:3]
+        nodes = [
+            {
+                **node,
+                "round": index,
+                "relation": "direct" if index == 1 else "indirect",
+            }
+            for index, node in enumerate(chain["nodes"], start=1)
+        ]
+        completed = result.entry == "insert_rework" and bool(nodes)
+        all_within_allowed = bool(nodes) and all(
+            node["withinAllowedRange"] for node in nodes
+        )
         list_out.append({
             "planSetName": plan_set_name,
             "jobObject": plan.get("jobObject"),
@@ -158,16 +188,30 @@ def _impact_chains(payload: dict, pending, result) -> dict:
             "firstWorkOrderNo": node_nos[0] if len(node_nos) >= 1 else None,
             "secondWorkOrderNo": node_nos[1] if len(node_nos) >= 2 else None,
             "thirdWorkOrderNo": node_nos[2] if len(node_nos) >= 3 else None,
-            "result": "连续重排成功" if result.entry == "insert_rework" else "连续重排失败",
+            "roundCount": len(nodes),
+            "nodes": nodes,
+            "completed": completed,
+            "allPlacedWithinWindow": all_within_allowed,
+            "result": "连续重排成功" if completed else "连续重排失败",
         })
 
     direct = len(chains)
     indirect = max(0, sum(len(c["nodes"]) for c in chains) - direct)
+    round_counts = [item["roundCount"] for item in list_out]
     return {
         "stats": {
             "chainCount": len(chains),
             "directCount": direct,
             "indirectCount": indirect,
+            "updatedOldCount": direct + indirect,
+            "totalRounds": sum(round_counts),
+            "roundCounts": round_counts,
+            "allChainsCompleted": bool(list_out) and all(
+                item["completed"] for item in list_out
+            ),
+            "allPlacedWithinWindow": bool(list_out) and all(
+                item["allPlacedWithinWindow"] for item in list_out
+            ),
         },
         "list": list_out,
     }
