@@ -357,6 +357,26 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         modify_label = None
         reject_label = "取消"
 
+    actions = [{
+        "key": "approve",
+        "label": approve_label,
+        "action": "approve",
+        "comment": "",
+    }]
+    if modify_label:
+        actions.append({
+            "key": "modify_time",
+            "label": modify_label,
+            "action": "reject",
+            "comment": "修改时间",
+        })
+    actions.append({
+        "key": "cancel",
+        "label": reject_label,
+        "action": "reject",
+        "comment": "",
+    })
+
     return {
         "variant": variant,
         "title": title,
@@ -366,6 +386,7 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "inspectionRange": inspection_range,
         "airportScheduleRange": airport_schedule_range,
         "counts": counts,
+        "actions": actions,
         "approveLabel": approve_label,
         "modifyLabel": modify_label,
         "rejectLabel": reject_label,

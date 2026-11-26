@@ -164,13 +164,22 @@ class TestAgentTools(unittest.TestCase):
         request = pause.call_args.args[0]
         self.assertEqual(request["tool_name"], "confirm_work_order_submission")
         self.assertEqual(request["display_title"], "确认创建机场与人工工单")
-        view = request["display_arguments"]["确认视图"]
+        view = request["display_arguments"]["confirmation"]
         self.assertEqual(view["variant"], "ready")
         self.assertEqual(view["approveLabel"], "确认创建机场与人工工单")
         self.assertEqual(view["rejectLabel"], "取消")
-        self.assertIn("新工单 0 张", request["display_arguments"]["排班摘要"])
-        self.assertEqual(request["display_arguments"]["完整组装结果"],
+        self.assertEqual(view["actions"], [
+            {"key": "approve", "label": "确认创建机场与人工工单",
+             "action": "approve", "comment": ""},
+            {"key": "cancel", "label": "取消",
+             "action": "reject", "comment": ""},
+        ])
+        self.assertIn("新工单 0 张", request["display_arguments"]["scheduleSummary"])
+        self.assertEqual(request["display_arguments"]["scheduleResult"],
                          store.get("test-thread", artifact.id)[1])
+        self.assertNotIn("确认视图", request["display_arguments"])
+        self.assertNotIn("排班摘要", request["display_arguments"])
+        self.assertNotIn("完整组装结果", request["display_arguments"])
         self.assertEqual(approved["status"], "confirmed_for_submission")
         self.assertEqual(approved["confirmationVariant"], "ready")
         self.assertEqual(approved["scheduleArtifactId"], artifact.id)
@@ -276,6 +285,14 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(force_view["approveLabel"], "确认强插")
         self.assertEqual(force_view["modifyLabel"], "修改时间")
         self.assertEqual(force_view["rejectLabel"], "取消")
+        self.assertEqual(force_view["actions"], [
+            {"key": "approve", "label": "确认强插",
+             "action": "approve", "comment": ""},
+            {"key": "modify_time", "label": "修改时间",
+             "action": "reject", "comment": "修改时间"},
+            {"key": "cancel", "label": "取消",
+             "action": "reject", "comment": ""},
+        ])
 
     def test_request_tool_emits_five_business_steps(self):
         state = MemoryWorkflowStateStore()

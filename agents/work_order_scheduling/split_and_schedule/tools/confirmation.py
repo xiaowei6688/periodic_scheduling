@@ -41,9 +41,9 @@ def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None)
                 description=confirmation["summary"],
                 display_title=confirmation["title"],
                 display_arguments=lambda _: {
-                    "确认视图": confirmation,
-                    "排班摘要": _schedule_summary(result),
-                    "完整组装结果": result,
+                    "confirmation": confirmation,
+                    "scheduleSummary": _schedule_summary(result),
+                    "scheduleResult": result,
                 },
                 required_fields=("schedule_artifact_id",),
             ),

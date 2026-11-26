@@ -267,7 +267,8 @@
       card.append(title, description);
       const displayArguments = event.display_arguments;
       const isScheduleApproval = event.tool_name === 'confirm_work_order_submission';
-      const assembled = isScheduleApproval ? displayArguments?.['完整组装结果'] : null;
+      const confirmationView = isScheduleApproval ? displayArguments?.confirmation : null;
+      const assembled = isScheduleApproval ? displayArguments?.scheduleResult : null;
       let detail;
       if (assembled && typeof assembled === 'object') {
         detail = document.createElement('div');
@@ -360,12 +361,20 @@
         card.append(fields);
       }
       const actions = document.createElement('div'); actions.className = 'approval-actions';
-      const confirmationView = isScheduleApproval ? displayArguments?.['确认视图'] : null;
-      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'approve'; approve.textContent = confirmationView?.approveLabel || (isScheduleApproval ? '确定创建机场与人工工单' : '通过');
-      const modify = confirmationView?.modifyLabel ? document.createElement('button') : null;
-      if (modify) { modify.type = 'button'; modify.textContent = confirmationView.modifyLabel; }
-      const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'reject'; reject.textContent = confirmationView?.rejectLabel || (isScheduleApproval ? '暂不提交' : '拒绝');
-      actions.append(approve); if (modify) actions.append(modify); actions.append(reject); card.append(detail, actions); group.content.append(card); scrollDown();
+      const fallbackActions = [
+        { key: 'approve', label: isScheduleApproval ? '确认创建机场与人工工单' : '通过', action: 'approve', comment: '' },
+        { key: 'cancel', label: isScheduleApproval ? '取消' : '拒绝', action: 'reject', comment: '' },
+      ];
+      const actionSpecs = Array.isArray(confirmationView?.actions) && confirmationView.actions.length
+        ? confirmationView.actions : fallbackActions;
+      const actionButtons = actionSpecs.map((spec) => {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = spec.label;
+        if (spec.key === 'approve') button.className = 'approve';
+        if (spec.key === 'cancel') button.className = 'reject';
+        actions.append(button);
+        return { spec, button };
+      });
+      card.append(detail, actions); group.content.append(card); scrollDown();
       const collectValues = () => {
         const values = {};
         for (const { field, control } of fieldControls) {
@@ -384,16 +393,16 @@
       const decide = (action, comment = '') => {
         const values = action === 'approve' ? collectValues() : {};
         if (values === null) return;
-        approve.disabled = reject.disabled = true; if (modify) modify.disabled = true;
+        for (const { button } of actionButtons) button.disabled = true;
         finished = false; setBusy(true); status.textContent = '正在恢复执行'; showActivity('正在恢复执行');
         socket.send(JSON.stringify({
           type: 'approval_decision', approval_id: event.approval_id,
           thread_id: event.thread_id, turn_id: event.turn_id, action, values, comment
         }));
       };
-      approve.onclick = () => decide('approve');
-      if (modify) modify.onclick = () => decide('reject', '修改时间');
-      reject.onclick = () => decide('reject');
+      for (const { spec, button } of actionButtons) {
+        button.onclick = () => decide(spec.action, spec.comment || '');
+      }
     }
     function connect() {
       clearTimeout(reconnect);

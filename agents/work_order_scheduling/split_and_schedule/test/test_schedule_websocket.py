@@ -104,12 +104,14 @@ class _Runtime:
 
 
 class TestScheduleWebSocket(unittest.TestCase):
-    def test_schedule_approval_buttons_use_confirmation_view_labels(self):
+    def test_schedule_approval_buttons_use_structured_actions(self):
         html = CHAT_HTML_FILE.read_text(encoding="utf-8")
-        self.assertIn("displayArguments?.['确认视图']", html)
-        self.assertIn("confirmationView?.approveLabel", html)
-        self.assertIn("confirmationView?.modifyLabel", html)
-        self.assertIn("confirmationView?.rejectLabel", html)
+        self.assertIn("displayArguments?.confirmation", html)
+        self.assertIn("displayArguments?.scheduleResult", html)
+        self.assertIn("confirmationView?.actions", html)
+        self.assertIn("decide(spec.action, spec.comment || '')", html)
+        self.assertNotIn("displayArguments?.['确认视图']", html)
+        self.assertNotIn("displayArguments?.['完整组装结果']", html)
 
     def test_page_debug_payload_can_embed_mock_existing_rows(self):
         runtime = _Runtime()
