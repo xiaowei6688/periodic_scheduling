@@ -506,6 +506,7 @@ class AgentRuntime:
             continuations=continuations,
             thread_id=thread_id,
             agent_display_names=self.agent_display_names,
+            supervisor_has_started=True,
         )
         config = self._run_config(thread_id)
         self._attach_tracker(config, tracker)
@@ -696,6 +697,7 @@ class AgentRuntime:
             continuations=continuations,
             thread_id=thread_id,
             agent_display_names=self.agent_display_names,
+            supervisor_has_started=True,
         )
         config = self._run_config(thread_id)
         self._attach_tracker(config, tracker)

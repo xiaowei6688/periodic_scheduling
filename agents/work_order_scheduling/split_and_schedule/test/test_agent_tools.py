@@ -96,6 +96,54 @@ class TestAgentTools(unittest.TestCase):
              "schedule_work_orders_from_request", "confirm_work_order_submission"],
         )
 
+    def test_handoff_step_uses_agent_display_name(self):
+        spec = AgentRegistry().discover_package("agents").get("split_and_schedule")
+        builder = GraphBuilder([spec], MagicMock(), settings=Settings())
+        handoff = next(
+            tool for tool in builder._supervisor_tools()
+            if tool.name == "transfer_to_split_and_schedule"
+        )
+
+        self.assertEqual(handoff.metadata["axis_handoff_label"], "工单拆分与排班")
+        self.assertEqual(handoff.metadata["axis_display_title"], "进行「工单拆分与排班」")
+
+    def test_supervisor_step_distinguishes_analysis_and_summary(self):
+        events = []
+        initial_tracker = SyncStepTracker(
+            events.append,
+            agent_names=["supervisor", "split_and_schedule"],
+            agent_display_names={"split_and_schedule": "工单拆分与排班"},
+        )
+
+        initial_tracker.on_chain_start(
+            {}, {}, run_id="supervisor-1",
+            metadata={"langgraph_node": "supervisor"},
+        )
+        initial_tracker.on_chain_end({}, run_id="supervisor-1")
+        initial_tracker.on_chain_start(
+            {}, {}, run_id="agent-1",
+            metadata={"langgraph_node": "split_and_schedule"},
+        )
+        initial_tracker.on_chain_end({}, run_id="agent-1")
+
+        resumed_tracker = SyncStepTracker(
+            events.append,
+            agent_names=["supervisor", "split_and_schedule"],
+            agent_display_names={"split_and_schedule": "工单拆分与排班"},
+            supervisor_has_started=True,
+        )
+        resumed_tracker.on_chain_start(
+            {}, {}, run_id="supervisor-2",
+            metadata={"langgraph_node": "supervisor"},
+        )
+
+        started = [event.title for event in events if event.status == "in_progress"]
+        self.assertEqual(started, [
+            "总调度分析任务中",
+            "工单拆分与排班处理中",
+            "总调度汇总结果中",
+        ])
+
     def test_submission_approval_uses_existing_framework_contract(self):
         store = MemoryArtifactStore()
         run_id = store.begin_run("test-thread")

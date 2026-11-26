@@ -420,6 +420,8 @@ class GraphBuilder:
                 make_handoff_tool(
                     spec.name,
                     f"把任务交给「{spec.name}」专家处理。{spec.description}",
+                    display_name=spec.display_name or spec.name,
+                    display_title=f"进行「{spec.display_name or spec.name}」",
                 )
                 for spec in self.specs
             ]
@@ -445,6 +447,8 @@ class GraphBuilder:
             make_handoff_tool(
                 spec.name,
                 f"把任务交给「{spec.name}」专家处理。{spec.description}",
+                display_name=spec.display_name or spec.name,
+                display_title=f"进行「{spec.display_name or spec.name}」",
             )
             for spec in specs
         ]
@@ -465,7 +469,13 @@ class GraphBuilder:
             if target not in self._by_name:
                 raise ValueError(f"Agent「{spec.name}」声明的 handoff 目标「{target}」未注册")
             t = self._by_name[target]
-            tools.append(make_handoff_tool(target, f"把任务直接交接给「{target}」专家。{t.description}"))
+            label = t.display_name or target
+            tools.append(make_handoff_tool(
+                target,
+                f"把任务直接交接给「{target}」专家。{t.description}",
+                display_name=label,
+                display_title=f"进行「{label}」",
+            ))
         if spec.parallel_handoffs:
             targets = tuple(sorted(spec.parallel_handoffs))
             tools.append(make_parallel_handoff_tool(list(targets), self._parallel_tool_description(targets)))

@@ -109,6 +109,7 @@ class _StepTrackerBase:
         continuations: dict[str, StepEvent] | None = None,
         thread_id: str = "",
         agent_display_names: Mapping[str, str] | None = None,
+        supervisor_has_started: bool = False,
     ) -> None:
         self._sink = sink
         self._thread_id = thread_id
@@ -120,6 +121,7 @@ class _StepTrackerBase:
         # run_id -> (agent_name, StepEvent)：当前未结束的 Agent 节点步骤。
         self._agent_runs: dict[str, tuple[str, StepEvent]] = {}
         self._agent_stack: list[tuple[str, str]] = []  # (agent_name, run_id)
+        self._supervisor_runs_started = int(supervisor_has_started)
         # run_id -> StepEvent：当前未结束的工具步骤。
         self._tool_runs: dict[str, StepEvent] = {}
 
@@ -129,7 +131,11 @@ class _StepTrackerBase:
 
     def _agent_title(self, node: str, supervisor: str) -> str:
         if node == supervisor:
-            return "总调度决策中"
+            return (
+                "总调度分析任务中"
+                if self._supervisor_runs_started == 0
+                else "总调度汇总结果中"
+            )
         if node.startswith("router_"):
             name = node[len("router_"):]
             display_name = self._agent_display_names.get(node)
@@ -169,6 +175,8 @@ class _StepTrackerBase:
             title=self._agent_title(node, self._supervisor),
             status="in_progress",
         )
+        if node == self._supervisor:
+            self._supervisor_runs_started += 1
         self._agent_runs[run_id] = (node, step)
         self._agent_stack.append((node, run_id))
         self._emit(step)
