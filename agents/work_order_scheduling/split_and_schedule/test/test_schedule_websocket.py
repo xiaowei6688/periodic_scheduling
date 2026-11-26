@@ -22,10 +22,11 @@ from core.steps import StepEvent
 from core.workflow_state import MemoryWorkflowStateStore, bind_workflow_state_store
 
 
-DATA_FILE = Path(__file__).resolve().parent / "mock_data" / "split_input.json"
-CHAT_HTML_FILE = Path(__file__).resolve().parent / "core" / "static" / "chat.html"
+ROOT_DIR = Path(__file__).resolve().parents[4]
+DATA_FILE = ROOT_DIR / "mock_data" / "split_input.json"
+CHAT_HTML_FILE = ROOT_DIR / "core" / "static" / "chat.html"
 APPROVAL_DATA_FILE = (
-    Path(__file__).resolve().parent
+    ROOT_DIR
     / "mock_data" / "approval_scenarios" / "reworked_full.json"
 )
 
@@ -114,7 +115,7 @@ class TestScheduleWebSocket(unittest.TestCase):
         runtime = _Runtime()
         payload = json.loads(APPROVAL_DATA_FILE.read_text(encoding="utf-8"))
         with patch(
-            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            "agents.work_order_scheduling.split_and_schedule.tools.rework_orders.fetch_existing_orders",
         ) as fetch:
             with TestClient(create_app(runtime)) as client:
                 with client.websocket_connect("/v1/chat/ws") as ws:
@@ -139,7 +140,7 @@ class TestScheduleWebSocket(unittest.TestCase):
         runtime = _Runtime()
         payload = json.loads(DATA_FILE.read_text(encoding="utf-8"))
         with patch(
-            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            "agents.work_order_scheduling.split_and_schedule.tools.rework_orders.fetch_existing_orders",
             return_value=[],
         ) as fetch:
             with TestClient(create_app(runtime)) as client:

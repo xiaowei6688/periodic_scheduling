@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from ..shared import ApiError, get_shared_client
+from ...shared import ApiError, get_shared_client
 
 from .split_work_orders import (
     INSPECTION_AIRPORT,
@@ -40,7 +40,7 @@ from .split_work_orders import (
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[3]
+BASE_DIR = Path(__file__).resolve().parents[4]
 DEFAULT_INPUT = BASE_DIR / "mock_data" / "split_input.json"
 DEFAULT_OUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_EXISTING = BASE_DIR / "out" / "existing_orders.json"

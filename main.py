@@ -7,7 +7,7 @@ import json
 import logging
 from pathlib import Path
 
-from agents.work_order_scheduling.split_and_schedule.rework_orders import ApiError
+from agents.work_order_scheduling.split_and_schedule.tools.rework_orders import ApiError
 from agents.work_order_scheduling.split_and_schedule.service import run_pipeline
 
 BASE_DIR = Path(__file__).resolve().parent

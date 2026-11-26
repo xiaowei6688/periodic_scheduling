@@ -1,26 +1,15 @@
-"""工单拆分与排班的 Agent 工具入口。计算结果不落盘、不落库。"""
+"""拆单、待排集合与排班 Agent 工具。"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import StructuredTool
 from langchain_core.tools import tool
 
-from core.approval import ApprovalSpec, require_approval
-from core.artifacts import ArtifactStore, make_artifact_result_tool
+from core.artifacts import make_artifact_result_tool
 from core.steps import with_progress
-from core.workflow_state import WorkflowStateStore
 from .rework_orders import collect_rework_set
-from .service import (
-    assemble_pipeline_output,
-    inspect_pipeline_result,
-    prepare_pipeline_orders,
-    run_pipeline,
-    schedule_pipeline_orders,
-    split_pipeline_input,
-)
+from ..service import run_pipeline
 from .split_work_orders import split_all, verify
 
 
@@ -416,191 +405,10 @@ schedule_work_orders = with_progress(
     title="工单排班",
 )
 
-REQUEST_NAMESPACE = "work_order_schedule"
-
-
-def _make_schedule_request_tool(store: WorkflowStateStore | None = None):
-    def schedule_request(request_id: str, config: RunnableConfig) -> dict[str, Any]:
-        """按本会话已提交的结构化请求排班；调试报文可内嵌 mock 旧工单。"""
-        if store is None:
-            raise RuntimeError("排班请求工具尚未绑定运行时状态")
-        thread_id = str((config.get("configurable") or {}).get("thread_id") or "")
-        data = store.load(thread_id, REQUEST_NAMESPACE, request_id)
-        if not isinstance(data, dict):
-            raise ValueError("排班请求不存在或已过期，请重新提交计划报文")
-        payload = data["payload"]
-        _check_payload(payload)
-        context: dict[str, Any] = {"payload": payload}
-
-        @tool("validate_and_split_schedule_plans")
-        def validate_and_split() -> dict[str, int]:
-            """校验计划并按执行方式拆分待排工单。"""
-            orders, details, window_start, window_end = split_pipeline_input(payload)
-            context.update(
-                orders=orders,
-                details=details,
-                window_start=window_start,
-                window_end=window_end,
-            )
-            return {
-                "plans": sum(
-                    len(strategy.get("planList") or [])
-                    for strategy in payload.get("planStrategyList") or []
-                ),
-                "orders": len(orders),
-                "details": len(details),
-            }
-
-        @tool("prepare_existing_work_orders")
-        def prepare_existing() -> dict[str, int]:
-            """查询并筛选排班窗口内的已有工单。"""
-            pending = prepare_pipeline_orders(
-                context["orders"],
-                context["details"],
-                context["window_start"],
-                context["window_end"],
-                _mock_existing_rows(payload),
-            )
-            context["pending"] = pending
-            return {
-                "new_orders": len(pending.new_orders),
-                "old_orders": len(pending.old_orders),
-            }
-
-        @tool("run_work_order_scheduling_rules")
-        def run_rules() -> dict[str, int]:
-            """执行优先级、容量、时段和旧单重排规则。"""
-            result = schedule_pipeline_orders(
-                context["pending"],
-                enforce_quota=data["enforce_quota"],
-                skip_weekdays=data["skip_weekdays"],
-                holidays=data["holidays"],
-            )
-            context["result"] = result
-            return {
-                "placements": len(result.new_placements),
-                "rework_steps": len(result.rework_steps),
-            }
-
-        @tool("inspect_schedule_outcome")
-        def inspect_outcome() -> dict[str, Any]:
-            """判定全部排妥、旧单重排或强排建议分支。"""
-            outcome = inspect_pipeline_result(context["result"])
-            context["outcome"] = outcome
-            return outcome
-
-        @tool("assemble_schedule_result")
-        def assemble_result() -> dict[str, int]:
-            """回组新工单、旧工单、影响链和确认信息。"""
-            output = assemble_pipeline_output(
-                payload, context["pending"], context["result"])
-            context["output"] = output
-            return {
-                "new_orders": len(_schedule_orders(output)),
-                "old_orders": len(output.get("oldWorkOrders") or []),
-            }
-
-        stages = (
-            with_progress(validate_and_split, title="校验并拆分巡检计划"),
-            with_progress(prepare_existing, title="获取并筛选已有工单"),
-            with_progress(run_rules, title="执行工单排班规则"),
-            with_progress(inspect_outcome, title="判定排班结果"),
-            with_progress(assemble_result, title="整理排班方案"),
-        )
-        for stage in stages:
-            stage.invoke({}, config=config)
-        return context["output"]
-
-    wrapped = StructuredTool.from_function(
-        schedule_request,
-        name="schedule_work_orders_from_request",
-        metadata={"axis_internal_tool": True},
-    )
-    object.__setattr__(
-        wrapped,
-        "_axis_rebind_workflow_state_tool",
-        lambda runtime_store: _make_schedule_request_tool(runtime_store),
-    )
-    return wrapped
-
-
-schedule_work_orders_from_request = with_progress(
-    make_artifact_result_tool(
-        _make_schedule_request_tool(),
-        artifact_type="scheduled_work_orders",
-        summary=_schedule_summary,
-    ),
-    title="工单排班",
-)
-
-
-def _make_confirm_work_order_submission_tool(store: ArtifactStore | None = None):
-    def confirm(schedule_artifact_id: str, config: RunnableConfig) -> dict | str:
-        """展示本轮完整排班结果并发起人工确认。"""
-        if store is None:
-            raise RuntimeError("确认工单工具尚未绑定运行时 ArtifactStore")
-        configurable = (config or {}).get("configurable") or {}
-        thread_id = str(configurable.get("thread_id") or "")
-        run_id = str(configurable.get("artifact_run_id") or "")
-        entry = store.get(thread_id, schedule_artifact_id, run_id=run_id)
-        if entry is None or entry[0].type != "scheduled_work_orders":
-            raise ValueError("排班结果不存在或不属于本轮请求，请重新排班")
-        result = entry[1]
-        confirmation = _confirmation_view(result)
-
-        @tool("confirm_work_order_submission")
-        def approve(schedule_artifact_id: str) -> dict[str, str]:
-            """确认本轮工单排班结果。"""
-            return {
-                "status": "confirmed_for_submission",
-                "scheduleArtifactId": schedule_artifact_id,
-                "confirmationVariant": confirmation["variant"],
-                "message": "已确认提交意向",
-            }
-
-        approval = require_approval(
-            approve,
-            ApprovalSpec(
-                description=confirmation["summary"],
-                display_title=confirmation["title"],
-                display_arguments=lambda _: {
-                    "确认视图": confirmation,
-                    "排班摘要": _schedule_summary(result),
-                    "完整组装结果": result,
-                },
-                required_fields=("schedule_artifact_id",),
-            ),
-        )
-        return approval.invoke({"schedule_artifact_id": schedule_artifact_id})
-
-    wrapped = StructuredTool.from_function(
-        confirm,
-        name="confirm_work_order_submission",
-        metadata={"axis_requires_approval": True},
-    )
-    object.__setattr__(
-        wrapped,
-        "_axis_rebind_artifact_tool",
-        lambda runtime_store, _producer: _make_confirm_work_order_submission_tool(runtime_store),
-    )
-    return wrapped
-
-
-confirm_work_order_submission = with_progress(
-    _make_confirm_work_order_submission_tool(),
-    title="确认工单提交",
-)
-
-TOOLS = [
-    split_work_orders,
-    prepare_rework_set,
-    schedule_work_orders,
-    schedule_work_orders_from_request,
-    confirm_work_order_submission,
-]
 
 __all__ = [
-    "TOOLS", "split_work_orders", "prepare_rework_set",
-    "schedule_work_orders", "schedule_work_orders_from_request",
-    "confirm_work_order_submission",
+    "split_work_orders",
+    "prepare_rework_set",
+    "schedule_work_orders",
 ]
+

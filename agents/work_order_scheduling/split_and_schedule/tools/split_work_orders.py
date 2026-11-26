@@ -29,7 +29,7 @@ from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[3]
+BASE_DIR = Path(__file__).resolve().parents[4]
 DEFAULT_DATA_DIR = BASE_DIR / "mock_data"
 DEFAULT_OUT = BASE_DIR / "out" / "work_orders.json"
 

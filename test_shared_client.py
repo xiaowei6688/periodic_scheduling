@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from agents.work_order_scheduling.shared import ApiError, MainCycleClient, MainCycleSettings
-from agents.work_order_scheduling.split_and_schedule import rework_orders
+from agents.work_order_scheduling.split_and_schedule.tools import rework_orders
 
 
 class _Response:

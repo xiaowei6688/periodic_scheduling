@@ -1,6 +1,6 @@
 """Agent 流程的冒烟测试：拆单 → 合并 → 重排 一条链路跑通。
 
-    python -m unittest test_pipeline -v
+    python -m unittest agents.work_order_scheduling.split_and_schedule.test.test_pipeline -v
 """
 
 from __future__ import annotations
@@ -11,11 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from agents.work_order_scheduling.split_and_schedule.output import _impact_chains
-from agents.work_order_scheduling.split_and_schedule.rework_algorithm import ReworkStep
+from agents.work_order_scheduling.split_and_schedule.tools.rework_algorithm import ReworkStep
 from agents.work_order_scheduling.split_and_schedule.service import run_pipeline
 from agents.work_order_scheduling.split_and_schedule.tools import _confirmation_view
 
-DATA_DIR = Path(__file__).resolve().parent / "mock_data"
+ROOT_DIR = Path(__file__).resolve().parents[4]
+DATA_DIR = ROOT_DIR / "mock_data"
 APPROVAL_SCENARIOS_DIR = DATA_DIR / "approval_scenarios"
 
 

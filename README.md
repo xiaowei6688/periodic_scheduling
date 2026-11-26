@@ -42,12 +42,12 @@ python -m unittest discover -p "test_*.py" -v    # 全量回归
 
 | 文件 | 说明 |
 |---|---|
-| `agents/work_order_scheduling/split_and_schedule/` | AgentSpec、拆单/待排/排班及会话请求工具；`service.py` 编排流程，`output.py` 组装输出 |
+| `agents/work_order_scheduling/split_and_schedule/` | AgentSpec 与流程组装；`tools/` 包含拆单、旧单处理、重排算法、请求编排和人工确认，`docs/` 放输入输出说明，`test/` 放模块测试 |
 | `main.py` | 算法调试命令行入口，调用 Agent 包内流程 |
 | `build_mock.py` | 生成 `mock_data/split_input.json`、`split_input_multi.json` |
-| `输入参数说明.md` | 输入报文字段含义与 JSON 结构 |
-| `输出结构说明.md` | 输出 `out/result.json` 的 JSON 结构说明 |
-| `test_*.py` | 拆单、重排、管线回归测试 |
+| `agents/work_order_scheduling/split_and_schedule/docs/输入参数说明.md` | 输入报文字段含义与 JSON 结构 |
+| `agents/work_order_scheduling/split_and_schedule/docs/输出结构说明.md` | 输出 `out/result.json` 的 JSON 结构说明 |
+| `agents/work_order_scheduling/split_and_schedule/test/` | 拆单、重排、管线与 Agent 工具回归测试 |
 
 ---
 
@@ -126,7 +126,7 @@ out = run_pipeline(payload, existing_rows=None, enforce_quota=True)
 
 ## 5. 输入 / 输出
 
-- 输入报文：`planSetInfo + planStrategyList + airports`；**不再传 `capacityTable`**。字段含义与 JSON 结构见 [输入参数说明.md](输入参数说明.md)。
+- 输入报文：`planSetInfo + planStrategyList + airports`；**不再传 `capacityTable`**。字段含义与 JSON 结构见 [输入参数说明.md](agents/work_order_scheduling/split_and_schedule/docs/输入参数说明.md)。
 - 输出：按**输入报文格式**回组；Agent 交付在 `artifacts[].data`，`main.py` 写到 `out/result.json`。
 
 ```jsonc

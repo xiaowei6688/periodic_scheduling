@@ -1,6 +1,6 @@
 """重排衔接模块测试：旧工单过滤、归一化、与新工单合并。
 
-    python -m unittest test_rework -v
+    python -m unittest agents.work_order_scheduling.split_and_schedule.test.test_rework -v
 """
 
 from __future__ import annotations
@@ -9,16 +9,16 @@ import json
 import unittest
 from pathlib import Path
 
-from agents.work_order_scheduling.split_and_schedule.rework_orders import (
+from agents.work_order_scheduling.split_and_schedule.tools.rework_orders import (
     build_rework_set,
     filter_reworkable,
     normalize_existing,
     order_date_span,
 )
-from agents.work_order_scheduling.split_and_schedule.split_work_orders import plan_limit, split_all, verify
+from agents.work_order_scheduling.split_and_schedule.tools.split_work_orders import plan_limit, split_all, verify
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "mock_data"
+ROOT_DIR = Path(__file__).resolve().parents[4]
+DATA_DIR = ROOT_DIR / "mock_data"
 
 
 def raw_order(**overrides) -> dict:
@@ -167,7 +167,7 @@ class TestMerge(unittest.TestCase):
 
 class TestRealSampleFiltering(unittest.TestCase):
     def test_real_sample_all_filtered(self):
-        path = BASE_DIR / "out" / "existing_orders.json"
+        path = ROOT_DIR / "out" / "existing_orders.json"
         if not path.exists():
             self.skipTest("缺少真实样本文件")
         rows = json.loads(path.read_text(encoding="utf-8"))

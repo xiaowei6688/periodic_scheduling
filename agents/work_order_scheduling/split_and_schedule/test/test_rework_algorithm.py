@@ -3,14 +3,14 @@
 测试构造的工单使用与真实集成一致的「原始形态」字段名，
 再经 canonicalize() 规整，确保测试覆盖真实链路。
 
-    python -m unittest test_rework_algorithm -v
+    python -m unittest agents.work_order_scheduling.split_and_schedule.test.test_rework_algorithm -v
 """
 
 from __future__ import annotations
 
 import unittest
 
-from agents.work_order_scheduling.split_and_schedule.rework_algorithm import (
+from agents.work_order_scheduling.split_and_schedule.tools.rework_algorithm import (
     Calendar,
     Scheduler,
     _occupy_existing,

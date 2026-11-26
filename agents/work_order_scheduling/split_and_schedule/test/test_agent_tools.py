@@ -23,7 +23,8 @@ from agents.work_order_scheduling.split_and_schedule.tools import (
 from agents.work_order_scheduling.split_and_schedule.prompts import SYSTEM_PROMPT
 
 
-DATA_FILE = Path(__file__).resolve().parent / "mock_data" / "split_input.json"
+ROOT_DIR = Path(__file__).resolve().parents[4]
+DATA_FILE = ROOT_DIR / "mock_data" / "split_input.json"
 
 
 class TestAgentTools(unittest.TestCase):
@@ -337,7 +338,7 @@ class TestAgentTools(unittest.TestCase):
         )
         run_id = artifacts.begin_run("thread-1")
         with patch(
-            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            "agents.work_order_scheduling.split_and_schedule.tools.rework_orders.fetch_existing_orders",
             return_value=[],
         ) as fetch:
             response = json.loads(bound.invoke(
@@ -379,7 +380,7 @@ class TestAgentTools(unittest.TestCase):
         )
         run_id = artifacts.begin_run("thread-1")
         with patch(
-            "agents.work_order_scheduling.split_and_schedule.rework_orders.fetch_existing_orders",
+            "agents.work_order_scheduling.split_and_schedule.tools.rework_orders.fetch_existing_orders",
             return_value=[],
         ):
             response = json.loads(tool.invoke(

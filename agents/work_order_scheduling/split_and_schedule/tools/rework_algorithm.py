@@ -44,7 +44,7 @@ from .split_work_orders import (
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[3]
+BASE_DIR = Path(__file__).resolve().parents[4]
 DEFAULT_INPUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_OUTPUT = BASE_DIR / "out" / "rework_result.json"
 
