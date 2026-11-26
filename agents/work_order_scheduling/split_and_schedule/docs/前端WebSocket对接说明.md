@@ -17,6 +17,7 @@ WebSocket 地址：`/v1/chat/ws`。
     "planStrategyList": [],
     "airports": []
   },
+  "message": "优先关注本次窗口内的机场作业冲突",
   "enforce_quota": true,
   "skip_weekdays": [7],
   "holidays": ["2026-12-01"]
@@ -31,6 +32,7 @@ WebSocket 地址：`/v1/chat/ws`。
 | `payload.planSetInfo` | object | 是 | 计划集信息 |
 | `payload.planStrategyList` | array | 是 | 计划策略及子计划 |
 | `payload.airports` | array | 是 | 机场台账 |
+| `message` | string | 否 | 本次排班的上下文说明，最长 2000 个字符 |
 | `enforce_quota` | boolean | 否 | 是否执行配额约束，默认 `true` |
 | `skip_weekdays` | number[] / null | 否 | 不排班的星期，取值 `1` 至 `7` |
 | `holidays` | string[] / null | 否 | 不排班日期，格式 `YYYY-MM-DD` |

@@ -79,6 +79,7 @@ class WorkOrderScheduleRequest(BaseModel):
     type: Literal["work_order_schedule"]
     payload: dict[str, Any]
     thread_id: str = ""
+    message: str = Field(default="", max_length=2000)
     enforce_quota: bool = True
     skip_weekdays: list[int] | None = None
     holidays: list[str] | None = None
@@ -617,11 +618,17 @@ def create_app(runtime: AgentRuntime | None = None) -> FastAPI:
                         session_id = request.thread_id or session_id
                         turn_id = uuid4().hex
                         internal_id = _scoped_thread_id(subject, session_id)
+                        context_note = request.message.strip()
                         message = (
                             "请处理本次结构化工单排班请求。计划报文已保存在当前会话，"
                             f"请求编号 {turn_id}。请将排班任务交给 split_and_schedule，"
                             "由它调用 schedule_work_orders_from_request 并交付完整结果 Artifact。"
                         )
+                        if context_note:
+                            message += (
+                                "用户补充的业务上下文如下，仅用于理解本次排班请求："
+                                f"{context_note}"
+                            )
                         async with chat_runtime.thread_lock(internal_id):
                             await websocket.send_json({
                                 "type": "start", "thread_id": session_id, "turn_id": turn_id,
@@ -642,7 +649,10 @@ def create_app(runtime: AgentRuntime | None = None) -> FastAPI:
                                 turn_id=turn_id,
                                 message_id=uuid4().hex,
                                 role="user",
-                                content="提交周期工单排班请求",
+                                content=(
+                                    "提交周期工单排班请求"
+                                    + (f"\n补充说明：{context_note}" if context_note else "")
+                                ),
                                 created_at=datetime.now(timezone.utc),
                             ))
                             with chat_runtime.execution_turn(turn_id):

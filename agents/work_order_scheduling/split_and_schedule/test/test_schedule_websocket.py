@@ -151,6 +151,7 @@ class TestScheduleWebSocket(unittest.TestCase):
                         "type": "work_order_schedule",
                         "thread_id": "schedule-1",
                         "payload": payload,
+                        "message": "优先关注本次窗口内的机场作业冲突",
                     })
                     events = []
                     while True:
@@ -175,6 +176,8 @@ class TestScheduleWebSocket(unittest.TestCase):
         self.assertEqual(len(runtime.graph_messages), 1)
         self.assertNotIn("planStrategyList", runtime.graph_messages[0])
         self.assertIn("split_and_schedule", runtime.graph_messages[0])
+        self.assertIn("用户补充的业务上下文", runtime.graph_messages[0])
+        self.assertIn("优先关注本次窗口内的机场作业冲突", runtime.graph_messages[0])
         request_id = re.search(r"请求编号 ([0-9a-f]+)", runtime.graph_messages[0]).group(1)
         self.assertEqual(
             runtime.workflow_state_store.load("schedule-1", REQUEST_NAMESPACE, request_id)["payload"],
