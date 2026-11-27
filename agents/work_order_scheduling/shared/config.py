@@ -51,6 +51,13 @@ class MainCycleSettings:
     auth_header: str
     token: str
     timeout_seconds: float = 30.0
+    login_path: str = "/api/zxhc-system/product/apiLogin"
+    tenant_id: str = ""
+    username: str = ""
+    password: str = ""
+    grant_type: str = "password"
+    scope: str = "all"
+    login_type: str = "account"
 
     @classmethod
     def from_env(cls) -> "MainCycleSettings":
@@ -62,12 +69,25 @@ class MainCycleSettings:
         timeout = float(value("MAIN_CYCLE_TIMEOUT_SECONDS", "30"))
         if timeout <= 0:
             raise ValueError("MAIN_CYCLE_TIMEOUT_SECONDS 必须大于 0")
+        login_path = value(
+            "MAIN_CYCLE_LOGIN_PATH",
+            "/api/zxhc-system/product/apiLogin",
+        )
+        if not login_path.startswith("/"):
+            raise ValueError("MAIN_CYCLE_LOGIN_PATH 必须以 / 开头")
         return cls(
             base_url=value("MAIN_CYCLE_BASE", "http://10.10.2.101:8000").rstrip("/"),
             basic_auth=value("MAIN_CYCLE_BASIC"),
             auth_header=value("MAIN_CYCLE_AUTH_HEADER", "zxhc-auth"),
             token=value("MAIN_CYCLE_TOKEN"),
             timeout_seconds=timeout,
+            login_path=login_path,
+            tenant_id=value("MAIN_CYCLE_TENANT_ID"),
+            username=value("MAIN_CYCLE_USERNAME"),
+            password=value("MAIN_CYCLE_PASSWORD"),
+            grant_type=value("MAIN_CYCLE_GRANT_TYPE", "password"),
+            scope=value("MAIN_CYCLE_SCOPE", "all"),
+            login_type=value("MAIN_CYCLE_LOGIN_TYPE", "account"),
         )
 
 

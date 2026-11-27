@@ -14,7 +14,10 @@ python main.py --existing-file out/existing_orders.json --out out/result.json
 python -m unittest discover -p "test_*.py" -v    # 全量回归
 ```
 
-在线查询旧工单时，在 `agents/work_order_scheduling/.env` 中配置 `MAIN_CYCLE_BASIC` 和 `MAIN_CYCLE_TOKEN`；
+在线查询旧工单时，在 `agents/work_order_scheduling/.env` 中配置
+`MAIN_CYCLE_BASIC`、`MAIN_CYCLE_TENANT_ID`、`MAIN_CYCLE_USERNAME` 和
+`MAIN_CYCLE_PASSWORD`。客户端会自动登录、按 `expires_in` 缓存 Token，并在
+鉴权失败时重新登录后重试一次。`MAIN_CYCLE_TOKEN` 仅作为未配置登录账号时的兼容回退；
 同名进程环境变量优先于 `.env`，该文件已被 Git 忽略。
 可选 `MAIN_CYCLE_BASE`（默认 `http://10.10.2.101:8000`）、
 `MAIN_CYCLE_AUTH_HEADER`（默认 `zxhc-auth`）和 `MAIN_CYCLE_TIMEOUT_SECONDS`（默认 30）。

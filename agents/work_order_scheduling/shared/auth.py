@@ -7,19 +7,30 @@ class ApiError(RuntimeError):
     pass
 
 
-def auth_headers(settings: MainCycleSettings) -> dict[str, str]:
+def basic_auth_header(settings: MainCycleSettings) -> dict[str, str]:
+    if not settings.basic_auth:
+        raise ApiError("缺少周期工单接口配置：MAIN_CYCLE_BASIC")
+    basic = settings.basic_auth
+    return {
+        "Authorization": basic if basic.lower().startswith("basic ") else f"Basic {basic}",
+    }
+
+
+def token_auth_headers(settings: MainCycleSettings, token: str) -> dict[str, str]:
     missing = [
         name for name, value in (
-            ("MAIN_CYCLE_BASIC", settings.basic_auth),
-            ("MAIN_CYCLE_TOKEN", settings.token),
             ("MAIN_CYCLE_AUTH_HEADER", settings.auth_header),
+            ("access_token", token),
         ) if not value
     ]
     if missing:
         raise ApiError(f"缺少周期工单接口配置：{', '.join(missing)}")
-    basic = settings.basic_auth
-    token = settings.token
     return {
-        "Authorization": basic if basic.lower().startswith("basic ") else f"Basic {basic}",
+        **basic_auth_header(settings),
         settings.auth_header: token if token.lower().startswith("bearer ") else f"bearer {token}",
     }
+
+
+def auth_headers(settings: MainCycleSettings) -> dict[str, str]:
+    """兼容仍使用静态 MAIN_CYCLE_TOKEN 的调用方。"""
+    return token_auth_headers(settings, settings.token)
