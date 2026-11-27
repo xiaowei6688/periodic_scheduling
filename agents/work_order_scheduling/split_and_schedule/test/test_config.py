@@ -16,6 +16,10 @@ class TestScheduleSettings(unittest.TestCase):
         self.assertEqual(configured.quota_ratio, 0.80)
         self.assertEqual(configured.force_window_visible, (59400, 63000))
         self.assertEqual(configured.force_window_infrared, (75600, 79200))
+        self.assertEqual(
+            configured.existing_orders_api_path,
+            "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPlanPage",
+        )
 
     def test_environment_overrides_schedule_rules(self):
         with patch.dict(os.environ, {

@@ -8,8 +8,8 @@
 
 数据来源
 --------
-POST {MAIN_CYCLE_BASE}/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage
-    只需要 startTime / endTime 两个参数，范围由新拆工单的最早 ~ 最晚日期决定。
+POST {MAIN_CYCLE_BASE}/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPlanPage
+    按新拆工单的最早 ~ 最晚日期查询状态为 9 的机场工单。
 
 过滤规则
 --------
@@ -61,13 +61,14 @@ DATE_FMT = "%Y-%m-%d %H:%M:%S"
 
 def fetch_existing_orders(start_time: str, end_time: str, *, page_size: int = 500,
                           max_pages: int = 500) -> list[dict]:
-    """按时间段拉旧工单，自动翻页。只传 startTime / endTime 即可。"""
+    """按时间段拉取状态为 9 的旧机场工单，自动翻页。"""
     collected: list[dict] = []
     for page in range(1, max_pages + 1):
         body = {
             "startTime": start_time,
             "endTime": end_time,
-            "inspectionMethod": 1,
+            "inspectionMethod": "1",
+            "workOrderStatus": "9",
             "current": page,
             "size": page_size,
             "extData": {},
@@ -96,7 +97,12 @@ def _extract_rows(payload: dict) -> tuple[list[dict], bool]:
         if isinstance(rows, list):
             current = data.get("current") or data.get("page") or 1
             pages = data.get("pages") or data.get("totalPages")
-            has_next = bool(pages) and int(current) < int(pages)
+            if pages is not None:
+                has_next = int(current) < int(pages)
+            else:
+                size = int(data.get("size") or len(rows) or 1)
+                total = int(data.get("total") or 0)
+                has_next = int(current) * size < total
             return rows, has_next
     return [], False
 

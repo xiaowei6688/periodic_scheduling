@@ -84,7 +84,7 @@ class ScheduleSettings:
     force_window_visible: tuple[int, int] = (16 * 3600 + 30 * 60, 17 * 3600 + 30 * 60)
     force_window_infrared: tuple[int, int] = (21 * 3600, 22 * 3600)
     sms_visible_start: int = 8 * 3600 + 30 * 60
-    existing_orders_api_path: str = "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage"
+    existing_orders_api_path: str = "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPlanPage"
 
     @classmethod
     def from_env(cls) -> "ScheduleSettings":
@@ -105,7 +105,7 @@ class ScheduleSettings:
 
         api_path = value(
             "SCHEDULE_EXISTING_ORDERS_API_PATH",
-            "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage",
+            "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPlanPage",
         )
         if not api_path.startswith("/"):
             raise ValueError("SCHEDULE_EXISTING_ORDERS_API_PATH 必须以 / 开头")

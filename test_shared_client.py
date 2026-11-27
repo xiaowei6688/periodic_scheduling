@@ -65,14 +65,19 @@ class TestSharedClient(unittest.TestCase):
                 self.calls.append((path, body))
                 page = body["current"]
                 return {"code": 200, "data": {"records": [{"workOrderGuid": str(page)}],
-                                               "current": page, "pages": 2}}
+                                               "current": page, "size": 1, "total": 2}}
 
         client = Client()
         with patch.object(rework_orders, "get_shared_client", return_value=client):
             rows = rework_orders.fetch_existing_orders("2026-11-01", "2026-11-30")
         self.assertEqual([row["workOrderGuid"] for row in rows], ["1", "2"])
         self.assertEqual([body["current"] for _, body in client.calls], [1, 2])
-        self.assertEqual(client.calls[0][1]["inspectionMethod"], 1)
+        self.assertEqual(client.calls[0][1]["inspectionMethod"], "1")
+        self.assertEqual(client.calls[0][1]["workOrderStatus"], "9")
+        self.assertEqual(
+            client.calls[0][0],
+            "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPlanPage",
+        )
         self.assertEqual(client.calls[0][0], rework_orders.API_PATH)
 
 
