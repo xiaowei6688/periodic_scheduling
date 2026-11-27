@@ -30,7 +30,8 @@ DATA_FILE = ROOT_DIR / "mock_data" / "split_input.json"
 class TestAgentTools(unittest.TestCase):
     def test_prompt_does_not_repeat_approval_card_in_chat_summary(self):
         self.assertIn("不要在聊天总结中复述审批卡视图", SYSTEM_PROMPT)
-        self.assertIn("报告完排班事实和警告数量后立即结束", SYSTEM_PROMPT)
+        self.assertIn("报告完排班事实和拆单提示后立即结束", SYSTEM_PROMPT)
+        self.assertIn("不要向用户汇报重排算法内部的系统告警", SYSTEM_PROMPT)
         self.assertIn("任何时候都不要提及 Agent 是否保存、存储、落库或创建数据", SYSTEM_PROMPT)
         self.assertNotIn("工具只计算，不保存文件或写入业务平台", SYSTEM_PROMPT)
 
@@ -240,7 +241,11 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(ready["airportScheduleRange"], {
             "start": "2026-11-12", "end": "2026-11-12",
         })
-        self.assertEqual(len(ready["summaryLines"]), 4)
+        self.assertEqual(len(ready["summaryLines"]), 5)
+        self.assertIn(
+            "已全部完成排期；因存在时段冲突，通过调整旧工单后均已排妥",
+            ready["summary"],
+        )
         self.assertIn("1 条影响链各完成 1 轮重排", ready["summary"])
         self.assertIn("1 张旧工单均已在自身允许范围内排妥", ready["summary"])
         self.assertIn("左侧“排期方案”页签", ready["summary"])
@@ -274,11 +279,20 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(force_view["counts"]["scheduled"], 1)
         self.assertEqual(force_view["counts"]["forced"], 0)
         self.assertEqual(force_view["counts"]["unplaced"], 1)
+        self.assertEqual(force_view["counts"]["forceCandidates"], 1)
+        self.assertEqual(force_view["counts"]["noForceCandidate"], 0)
         self.assertEqual(force_view["counts"]["directAffected"], 3)
         self.assertEqual(force_view["counts"]["indirectAffected"], 6)
         self.assertEqual(force_view["counts"]["oldUpdates"], 2)
         self.assertEqual(force_view["counts"]["airportDevices"], 105)
-        self.assertIn("真正无候选时间的工单 1 张", force_view["summary"])
+        self.assertIn(
+            "无法在现有排班规则和资源范围内将全部 2 张新工单正常排妥",
+            force_view["summary"],
+        )
+        self.assertIn(
+            "1 张已生成强插候选时间，0 张没有可执行的强插候选时间",
+            force_view["summary"],
+        )
         self.assertIn("直接影响 3 张、间接影响 6 张", force_view["summary"])
         self.assertIn("左侧“受影响工单”页签", force_view["summary"])
         self.assertEqual(force_view["title"], "确认强插")
@@ -293,6 +307,60 @@ class TestAgentTools(unittest.TestCase):
             {"key": "cancel", "label": "取消",
              "action": "reject", "comment": ""},
         ])
+
+    def test_confirmation_only_shows_detailed_split_warnings(self):
+        result = {
+            "planStrategyList": [{"planList": [{"workOrders": [
+                {
+                    "workOrderGuid": "new-1",
+                    "workOrderNo": "ZQ-NEW-1",
+                    "inspectionMethod": "1",
+                    "parentDeviceNum": 1,
+                    "scheduleReason": "未匹配到有效承载力，保底1小时",
+                    "preStartDate": "2026-11-01 00:00:00",
+                    "preEndDate": "2026-11-01 23:59:59",
+                    "startDate": "2026-11-01 08:30:00",
+                    "endDate": "2026-11-01 09:30:00",
+                },
+                {
+                    "workOrderGuid": "new-2",
+                    "workOrderNo": "ZQ-NEW-2",
+                    "inspectionMethod": "1",
+                    "parentDeviceNum": 1,
+                    "scheduleReason": "未匹配到有效承载力，保底1小时",
+                    "preStartDate": "2026-11-01 00:00:00",
+                    "preEndDate": "2026-11-01 23:59:59",
+                    "startDate": "2026-11-01 09:30:00",
+                    "endDate": "2026-11-01 10:30:00",
+                },
+            ]}]}],
+            "oldWorkOrders": [],
+            "impactChains": {"stats": {}},
+            "entry": "normal",
+            "forceProposals": [],
+            "warnings": ["old-1: 起止跨日，按开始日占用"],
+        }
+
+        view = _confirmation_view(result)
+
+        self.assertIn(
+            "本次 2 张新工单均已在现有规则和资源范围内正常排妥",
+            view["summary"],
+        )
+        self.assertEqual(view["counts"]["warnings"], 2)
+        self.assertEqual(view["counts"]["warningTypes"], 1)
+        self.assertEqual(view["counts"]["systemWarnings"], 1)
+        self.assertEqual(view["splitWarningGroups"], [{
+            "reason": "未匹配到有效承载力，保底1小时",
+            "count": 2,
+            "workOrderNos": ["ZQ-NEW-1", "ZQ-NEW-2"],
+        }])
+        self.assertIn(
+            "- 2 张工单：未匹配到有效承载力，保底1小时；"
+            "工单号：ZQ-NEW-1、ZQ-NEW-2",
+            view["summary"],
+        )
+        self.assertNotIn("起止跨日", view["summary"])
 
     def test_request_tool_emits_five_business_steps(self):
         state = MemoryWorkflowStateStore()

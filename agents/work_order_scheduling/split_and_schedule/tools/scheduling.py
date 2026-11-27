@@ -95,11 +95,26 @@ def _schedule_summary(result: dict) -> str:
         str(order.get("workOrderNo") or order.get("workOrderGuid"))
         for order in orders if not order.get("startDate") or not order.get("endDate")
     ]
+    split_warnings = _split_warning_items(orders)
+    split_warning_groups = _split_warning_groups(split_warnings)
+    completion_note = {
+        "normal": "全部新工单均已在规则内正常排妥",
+        "insertRework": "全部新工单均已通过旧工单重排完成排期",
+        "forceInsert": "现有规则内无法将全部新工单正常排妥，需核对强插建议",
+    }.get(result["entry"], "排班结果待核对")
     return (
         f"新工单 {len(orders)} 张，旧工单 {len(result['oldWorkOrders'])} 张；"
-        f"排班入口 {result['entry']}；未排入 {len(unplaced)} 张"
+        f"排班结论：{completion_note}；排班入口 {result['entry']}；未排入 {len(unplaced)} 张"
         + (f"（{', '.join(unplaced[:10])}{' 等' if len(unplaced) > 10 else ''}）" if unplaced else "")
-        + f"；强插建议 {len(result['forceProposals'])} 条；警告 {len(result['warnings'])} 条"
+        + f"；强插建议 {len(result['forceProposals'])} 条"
+        + (
+            f"；拆单提示涉及 {len(split_warnings)} 张工单："
+            + "；".join(
+                f"{group['reason']}（工单号：{'、'.join(group['workOrderNos'])}）"
+                for group in split_warning_groups
+            )
+            if split_warnings else "；无拆单提示"
+        )
     )
 
 
@@ -125,6 +140,37 @@ def _device_count(orders: list[dict]) -> int:
         except (TypeError, ValueError):
             continue
     return total
+
+
+def _split_warning_items(orders: list[dict]) -> list[dict[str, str]]:
+    """拆单提示来自新工单 scheduleReason；重排系统 warnings 不面向用户展示。"""
+    items = []
+    for order in orders:
+        reason = str(order.get("scheduleReason") or "").strip()
+        if not reason:
+            continue
+        items.append({
+            "workOrderNo": str(
+                order.get("workOrderNo") or order.get("workOrderGuid") or "未知工单"
+            ),
+            "reason": reason,
+        })
+    return items
+
+
+def _split_warning_groups(items: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """按原因聚合拆单提示，避免同一原因在用户总结中重复出现。"""
+    groups: dict[str, list[str]] = {}
+    for item in items:
+        groups.setdefault(item["reason"], []).append(item["workOrderNo"])
+    return [
+        {
+            "reason": reason,
+            "count": len(work_order_nos),
+            "workOrderNos": work_order_nos,
+        }
+        for reason, work_order_nos in groups.items()
+    ]
 
 
 def _confirmation_view(result: dict) -> dict[str, Any]:
@@ -176,7 +222,13 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         date for order in airport_orders
         if order.get("endDate") and (date := _date_part(order.get("endDate")))
     ]
-    warnings = result.get("warnings") or []
+    split_warnings = _split_warning_items(orders)
+    split_warning_groups = _split_warning_groups(split_warnings)
+    system_warnings = result.get("warnings") or []
+    feasible_force_proposals = [
+        proposal for proposal in result.get("forceProposals") or []
+        if proposal.get("feasible")
+    ]
     is_force_insert = result.get("entry") == "forceInsert" or bool(unplaced)
     chain_count = int(impact_stats.get("chainCount") or 0)
     round_counts = [int(value) for value in impact_stats.get("roundCounts") or []]
@@ -191,6 +243,9 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "manualPlans": len(manual_plan_ids),
         "scheduled": len(scheduled),
         "forced": len(forced),
+        "forceCandidates": len(feasible_force_proposals),
+        "noForceCandidate": max(
+            0, len(unplaced) - len(feasible_force_proposals)),
         "airportScheduled": sum(
             bool(o.get("startDate") and o.get("endDate")) for o in airport_orders
         ),
@@ -201,7 +256,9 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "impactChains": chain_count,
         "totalReworkRounds": int(impact_stats.get("totalRounds") or sum(round_counts)),
         "reworkRounds": round_counts,
-        "warnings": len(warnings),
+        "warnings": len(split_warnings),
+        "warningTypes": len(split_warning_groups),
+        "systemWarnings": len(system_warnings),
     }
     inspection_range = {
         "start": min(range_starts) if range_starts else None,
@@ -222,16 +279,19 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         else range_text
     )
     warning_note = (
-        f"本次另有 {counts['warnings']} 条排班告警，请在排期方案中一并核对。"
-        if counts["warnings"]
-        else "本次没有额外排班告警。"
+        f"拆单时发现 {counts['warnings']} 张工单需要核对，"
+        f"共 {counts['warningTypes']} 类提示：\n"
+        + "\n".join(
+            f"- {group['count']} 张工单：{group['reason']}；"
+            f"工单号：{'、'.join(group['workOrderNos'])}"
+            for group in split_warning_groups
+        )
+        if split_warnings
+        else "本次没有需要核对的拆单提示。"
     )
 
     if is_force_insert:
-        proposals = [
-            proposal for proposal in result.get("forceProposals") or []
-            if proposal.get("feasible")
-        ]
+        proposals = feasible_force_proposals
         visible_proposals = [
             proposal for proposal in proposals
             if proposal.get("forceTimePeriod") == "16:30:00-17:30:00"
@@ -263,10 +323,12 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
                 f"人工 {counts['manualDevices']} 基、{counts['manual']} 张工单。"
             ),
             (
-                f"巡检日期为 {range_text}。规则排班完成 "
-                f"{counts['newTotal'] - counts['forced'] - counts['unplaced']} 张；"
-                f"另有 {counts['forced']} 张已生成强排候选时间，"
-                f"真正无候选时间的工单 {counts['unplaced']} 张。"
+                f"巡检日期为 {range_text}。本次无法在现有排班规则和资源范围内"
+                f"将全部 {counts['newTotal']} 张新工单正常排妥：规则内已正常排妥 "
+                f"{counts['newTotal'] - counts['unplaced']} 张，仍有 "
+                f"{counts['unplaced']} 张无法按规则排入；其中 "
+                f"{counts['forceCandidates']} 张已生成强插候选时间，"
+                f"{counts['noForceCandidate']} 张没有可执行的强插候选时间。"
             ),
             (
                 f"强排建议：{force_schedule_note}；候选日期为 {date_note}。"
@@ -312,7 +374,12 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
             )
         summary_lines = [
             (
-                f"{counts['planTotal']} 个计划已完成排期，拟创建 {counts['newTotal']} 张工单"
+                f"本次 {counts['newTotal']} 张新工单已全部完成排期；"
+                "因存在时段冲突，通过调整旧工单后均已排妥，没有未排入或需要强插的工单。"
+            ),
+            (
+                f"{counts['planTotal']} 个计划已完成排期，拟创建 "
+                f"{counts['newTotal']} 张工单"
                 f"（机场 {counts['airport']} 张、人工 {counts['manual']} 张）。"
                 f"{chain_note}，{old_order_note}。请核对后确认创建。"
             ),
@@ -338,6 +405,10 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
             else "本次没有人工设备，无需生成人工候选工单。"
         )
         summary_lines = [
+            (
+                f"本次 {counts['newTotal']} 张新工单均已在现有规则和资源范围内"
+                "正常排妥，没有影响旧工单，也不需要强插。"
+            ),
             (
                 f"已按执行方式分流：机场 {counts['airportDevices']} 基、人工 "
                 f"{counts['manualDevices']} 基，共生成 {counts['newTotal']} 张新工单。"
@@ -386,6 +457,8 @@ def _confirmation_view(result: dict) -> dict[str, Any]:
         "inspectionRange": inspection_range,
         "airportScheduleRange": airport_schedule_range,
         "counts": counts,
+        "splitWarnings": split_warnings,
+        "splitWarningGroups": split_warning_groups,
         "actions": actions,
         "approveLabel": approve_label,
         "modifyLabel": modify_label,
