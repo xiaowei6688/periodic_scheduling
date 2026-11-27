@@ -34,6 +34,8 @@ from ...shared import ApiError, get_shared_client, schedule_settings
 
 from .split_work_orders import (
     INSPECTION_AIRPORT,
+    month_window,
+    schedule_reference_date,
     split_all,
     verify,
 )
@@ -260,21 +262,21 @@ def build_rework_set(new_orders: list[dict], existing_rows: list[dict],
 
 
 def collect_rework_set(payload: dict, existing_rows: Optional[list[dict]] = None,
-                       *, save_existing: Optional[str] = None) -> ReworkSet:
+                       *, save_existing: Optional[str] = None,
+                       reference_date=None) -> ReworkSet:
     """拆单 → 定窗口 → 取旧工单 → 过滤归一化，合并成待排集合。
 
     existing_rows=None 时按新工单窗口在线调接口拉取；
     save_existing 非空时把拉到的旧工单原样存到该文件。
     """
-    orders, details, results = split_all(payload)
+    reference_date = schedule_reference_date(payload, reference_date)
+    orders, details, results = split_all(payload, reference_date=reference_date)
     problems = verify(results)
     if problems:
         raise ValueError("拆单守恒校验失败：" + "；".join(problems))
-    window_start, window_end = order_date_span(orders)
+    window_start, window_end = month_window(reference_date)
     logger.info("拆单完成 工单=%s 明细=%s 窗口=%s ~ %s",
                 len(orders), len(details), window_start, window_end)
-    if not window_start or not window_end:
-        raise ValueError("新工单缺少 pre 窗口，无法确定拉取范围")
     if existing_rows is None:
         existing_rows = fetch_existing_orders(window_start, window_end)
     elif save_existing:

@@ -18,14 +18,16 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import logging
 import math
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable, Optional
+from zoneinfo import ZoneInfo
 
 from ...shared import schedule_settings
 
@@ -805,18 +807,57 @@ def emit_orders(results: list[PlanSplitResult], ledgers: Ledgers
 # ---------------------------------------------------------------- 主流程
 
 
-def split_all(payload: dict, ledgers: Optional[Ledgers] = None
+def month_window(reference_date: date | datetime | str | None = None) -> tuple[str, str]:
+    """返回业务当前月的完整时间范围，生产默认使用上海时区。"""
+    if reference_date is None:
+        current = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    elif isinstance(reference_date, datetime):
+        current = reference_date.date()
+    elif isinstance(reference_date, date):
+        current = reference_date
+    else:
+        current = datetime.strptime(str(reference_date)[:10], "%Y-%m-%d").date()
+    last_day = calendar.monthrange(current.year, current.month)[1]
+    return (
+        f"{current.year:04d}-{current.month:02d}-01 00:00:00",
+        f"{current.year:04d}-{current.month:02d}-{last_day:02d} 23:59:59",
+    )
+
+
+def schedule_reference_date(payload: dict, reference_date=None):
+    """生产使用当前月；测试报文可用内部字段固定参考月份。"""
+    return reference_date or payload.get("_scheduleReferenceDate")
+
+
+def _plan_in_month(plan: dict, month_start: str, month_end: str) -> dict | None:
+    start = str(plan.get("preStartDate") or plan.get("cycleStartDate") or "")
+    end = str(plan.get("preEndDate") or plan.get("cycleEndDate") or "")
+    if not start or not end or end < month_start or start > month_end:
+        return None
+    clipped = dict(plan)
+    clipped["preStartDate"] = max(start, month_start)
+    clipped["preEndDate"] = min(end, month_end)
+    return clipped
+
+
+def split_all(payload: dict, ledgers: Optional[Ledgers] = None,
+              reference_date: date | datetime | str | None = None
               ) -> tuple[list[dict], list[dict], list[PlanSplitResult]]:
-    """拆单入口。只吃一个自包含报文，台账/机场/承载力都在里面。"""
+    """只拆当前自然月计划；跨月计划的工单窗口截到当月月底。"""
     ledgers = ledgers or Ledgers.from_payload(payload)
+    reference_date = schedule_reference_date(payload, reference_date)
+    month_start, month_end = month_window(reference_date)
     strategies = {s["planStrategyGuid"]: s for s in payload.get("planStrategyList") or []}
     logger.info("拆单开始 计划包=%s 机场=%s", len(strategies), len(ledgers.airports))
     results: list[PlanSplitResult] = []
     for plan in iterate_plans(payload):
+        active_plan = _plan_in_month(plan, month_start, month_end)
+        if active_plan is None:
+            continue
         strategy = strategies.get(plan.get("planStrategyGuid") or "")
         if strategy is None:
             continue
-        results.append(prepare_plan(plan, strategy, ledgers))
+        results.append(prepare_plan(active_plan, strategy, ledgers))
     orders, details = emit_orders(results, ledgers)
     return orders, details, results
 

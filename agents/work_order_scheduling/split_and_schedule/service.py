@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
 from typing import Optional
 
 from .tools import rework_orders
@@ -11,22 +12,23 @@ from .tools.rework_algorithm import rework
 from .tools.rework_orders import (
     ReworkSet,
     build_rework_set,
-    order_date_span,
 )
-from .tools.split_work_orders import split_all, verify
+from .tools.split_work_orders import month_window, schedule_reference_date, split_all, verify
 
 logger = logging.getLogger(__name__)
 
 
-def split_pipeline_input(payload: dict) -> tuple[list[dict], list[dict], str, str]:
+def split_pipeline_input(
+    payload: dict,
+    reference_date: date | datetime | str | None = None,
+) -> tuple[list[dict], list[dict], str, str]:
     """校验并拆分计划，返回新工单、明细和整体允许窗口。"""
-    orders, details, results = split_all(payload)
+    reference_date = schedule_reference_date(payload, reference_date)
+    orders, details, results = split_all(payload, reference_date=reference_date)
     problems = verify(results)
     if problems:
         raise ValueError("拆单守恒校验失败：" + "；".join(problems))
-    window_start, window_end = order_date_span(orders)
-    if not window_start or not window_end:
-        raise ValueError("新工单缺少 pre 窗口，无法确定拉取范围")
+    window_start, window_end = month_window(reference_date)
     return orders, details, window_start, window_end
 
 
@@ -90,12 +92,14 @@ def run_pipeline(payload: dict, existing_rows: Optional[list[dict]] = None, *,
                  enforce_quota: bool = True,
                  save_existing: Optional[str] = None,
                  skip_weekdays: Optional[list[int]] = None,
-                 holidays: Optional[list[str]] = None) -> dict:
+                 holidays: Optional[list[str]] = None,
+                 reference_date: date | datetime | str | None = None) -> dict:
     """拆单 → 拉旧单合并 → 重排，按输入报文格式回组结果。"""
     logger.info("整流程开始 配额约束=%s 跳过星期=%s 节假日=%s 离线旧单=%s",
                 enforce_quota, skip_weekdays, holidays,
                 "是" if existing_rows is not None else "否")
-    orders, details, window_start, window_end = split_pipeline_input(payload)
+    orders, details, window_start, window_end = split_pipeline_input(
+        payload, reference_date)
     pending = prepare_pipeline_orders(
         orders, details, window_start, window_end, existing_rows)
     result = schedule_pipeline_orders(

@@ -264,9 +264,10 @@ def _build_output(payload: dict, pending, result) -> dict:
     for detail in pending.details:
         detail_map[detail["work_order_guid"]].append(detail)
 
-    plan_orders: dict[int, list[dict]] = defaultdict(list)
+    plan_orders: dict[str, list[dict]] = defaultdict(list)
     for order in result.new_orders_out:
-        plan_orders[id(order.get("plan"))].append(_new_order_item(order, detail_map, airports))
+        plan_orders[str(order.get("plan_guid") or "")].append(
+            _new_order_item(order, detail_map, airports))
 
     strategies_out = []
     total_plans = 0
@@ -275,7 +276,7 @@ def _build_output(payload: dict, pending, result) -> dict:
         plan_list_out = []
         strategy_orders = 0
         for plan in strategy.get("planList") or []:
-            orders = plan_orders.get(id(plan), [])
+            orders = plan_orders.get(str(plan.get("planGuid") or ""), [])
             plan_out = dict(plan)
             plan_out["workOrders"] = orders
             plan_out["workOrderCount"] = len(orders)

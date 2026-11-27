@@ -1,4 +1,5 @@
 {
+  "_scheduleReferenceDate": "2026-12-01",
   "planSetInfo": {"planSetGuid": "mock-reworked-plan-set", "planSetName": "场景二：影响旧工单并完成重排"},
   "planStrategyList": [
     {

@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from agents.work_order_scheduling.split_and_schedule.output import _impact_chains
 from agents.work_order_scheduling.split_and_schedule.tools.rework_algorithm import ReworkStep
 from agents.work_order_scheduling.split_and_schedule.service import run_pipeline
 from agents.work_order_scheduling.split_and_schedule.tools import _confirmation_view
+from agents.work_order_scheduling.split_and_schedule.tools.split_work_orders import split_all
 
 ROOT_DIR = Path(__file__).resolve().parents[4]
 DATA_DIR = ROOT_DIR / "mock_data"
@@ -38,6 +41,84 @@ def raw_order(guid: str) -> dict:
 
 
 class TestPipeline(unittest.TestCase):
+    @staticmethod
+    def _current_month_payload() -> dict:
+        payload = load_payload()
+        strategy = deepcopy(payload["planStrategyList"][0])
+        template = strategy["planList"][0]
+        plans = []
+        for suffix, start, end in (
+            ("inside", "2026-11-20 00:00:00", "2026-11-30 23:59:59"),
+            ("cross", "2026-11-20 00:00:00", "2026-12-15 23:59:59"),
+            ("future", "2026-12-01 00:00:00", "2026-12-15 23:59:59"),
+        ):
+            plan = deepcopy(template)
+            plan["planGuid"] = f"month-plan-{suffix}"
+            plan["planNo"] = f"MONTH-{suffix.upper()}"
+            plan["preStartDate"] = start
+            plan["preEndDate"] = end
+            plans.append(plan)
+        strategy["planList"] = plans
+        payload["planStrategyList"] = [strategy]
+        payload["_scheduleReferenceDate"] = "2026-11-15"
+        return payload
+
+    def test_only_current_month_plans_are_split_and_cross_month_is_clipped(self):
+        payload = self._current_month_payload()
+
+        orders, _, _ = split_all(payload)
+
+        self.assertEqual(
+            {order["plan_guid"] for order in orders},
+            {"month-plan-inside", "month-plan-cross"},
+        )
+        cross_orders = [
+            order for order in orders if order["plan_guid"] == "month-plan-cross"
+        ]
+        self.assertTrue(cross_orders)
+        self.assertTrue(all(
+            order["pre_end_date"] == "2026-11-30 23:59:59"
+            for order in cross_orders
+        ))
+
+    def test_future_plan_is_preserved_without_orders(self):
+        payload = self._current_month_payload()
+
+        result = run_pipeline(payload, [], enforce_quota=False)
+
+        plans = {
+            plan["planGuid"]: plan
+            for plan in result["planStrategyList"][0]["planList"]
+        }
+        self.assertEqual(plans["month-plan-future"]["workOrders"], [])
+        self.assertEqual(plans["month-plan-future"]["workOrderCount"], 0)
+        self.assertEqual(
+            plans["month-plan-future"]["preStartDate"],
+            "2026-12-01 00:00:00",
+        )
+        self.assertTrue(plans["month-plan-cross"]["workOrders"])
+        self.assertEqual(
+            plans["month-plan-cross"]["preEndDate"],
+            "2026-12-15 23:59:59",
+        )
+        self.assertTrue(all(
+            order["preEndDate"] == "2026-11-30 23:59:59"
+            for order in plans["month-plan-cross"]["workOrders"]
+        ))
+
+    def test_existing_orders_are_queried_for_the_whole_current_month(self):
+        payload = self._current_month_payload()
+
+        with patch(
+            "agents.work_order_scheduling.split_and_schedule.service."
+            "rework_orders.fetch_existing_orders",
+            return_value=[],
+        ) as fetch:
+            run_pipeline(payload, enforce_quota=False)
+
+        fetch.assert_called_once_with(
+            "2026-11-01 00:00:00", "2026-11-30 23:59:59")
+
     def test_approval_scenario_mocks_cover_all_three_outcomes(self):
         scenarios = {
             "normal_full.json": {

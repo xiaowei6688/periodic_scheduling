@@ -1,4 +1,5 @@
 {
+  "_scheduleReferenceDate": "2026-12-01",
   "planSetInfo": {"planSetGuid": "mock-normal-plan-set", "planSetName": "场景一：全部排妥"},
   "planStrategyList": [
     {
