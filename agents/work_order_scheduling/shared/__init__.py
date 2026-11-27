@@ -2,6 +2,13 @@
 
 from .auth import ApiError
 from .client import MainCycleClient, get_shared_client
-from .config import MainCycleSettings
+from .config import MainCycleSettings, ScheduleSettings, schedule_settings
 
-__all__ = ["ApiError", "MainCycleClient", "MainCycleSettings", "get_shared_client"]
+__all__ = [
+    "ApiError",
+    "MainCycleClient",
+    "MainCycleSettings",
+    "ScheduleSettings",
+    "get_shared_client",
+    "schedule_settings",
+]

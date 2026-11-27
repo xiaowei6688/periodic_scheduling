@@ -34,6 +34,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from ...shared import schedule_settings
+
 from .split_work_orders import (
     INSPECTION_AIRPORT,
     INSPECTION_MANUAL,
@@ -54,15 +56,15 @@ STATUS_FIXED = {"8", "12", "16"}   # 固定占用（16 只有预计时长>0 才�
 # 参与占用日历的状态全集 8/9/12/16
 
 # ---- 无作业时段时的默认窗口（文档2 第六节 / 接口说明 4.2）----
-DEFAULT_WINDOW_VISIBLE = "08:30:00-17:30:00"
-DEFAULT_WINDOW_INFRARED = "05:00:00-08:00:00;19:00:00-22:00:00"
+DEFAULT_WINDOW_VISIBLE = schedule_settings.default_window_visible
+DEFAULT_WINDOW_INFRARED = schedule_settings.default_window_infrared
 
 # ---- 规则排不下时的产品强排时段 ----
-FORCE_WINDOW_VISIBLE = (16 * 3600 + 30 * 60, 17 * 3600 + 30 * 60)
-FORCE_WINDOW_INFRARED = (21 * 3600, 22 * 3600)
+FORCE_WINDOW_VISIBLE = schedule_settings.force_window_visible
+FORCE_WINDOW_INFRARED = schedule_settings.force_window_infrared
 
 # ---- 变电可见光必须 08:30 开始（文档 临时§六）----
-SMS_VISIBLE_START = 8 * 3600 + 30 * 60
+SMS_VISIBLE_START = schedule_settings.sms_visible_start
 
 # ---- 人工工单平台正式规则（FR08；口径确认前先用平台既有值）----
 MANUAL_ORDER_SOURCE = "5"

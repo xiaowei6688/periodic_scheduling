@@ -27,6 +27,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
+from ...shared import schedule_settings
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[4]
@@ -36,14 +38,14 @@ DEFAULT_OUT = BASE_DIR / "out" / "work_orders.json"
 # ---------------------------------------------------------------- 常量（对齐 Java）
 
 # 理论日作业秒数：可见光 8h / 红外 6h（文档 §4.2 表）
-DAY_SECONDS_VISIBLE = 8 * 3600
-DAY_SECONDS_INFRARED = 6 * 3600
+DAY_SECONDS_VISIBLE = schedule_settings.day_seconds_visible
+DAY_SECONDS_INFRARED = schedule_settings.day_seconds_infrared
 # 正常排班日配额 80%（文档 §4.2、§4.3）
-QUOTA_RATIO = 0.80
+QUOTA_RATIO = schedule_settings.quota_ratio
 # 红外作业性质子类（Java 6623-6625 isAirportInfrared）
 INFRARED_SUB_NATURES = {"s-hwxs", "t-hwxs", "d-hwxs"}
 # 估时保底秒数（Java 6494 整组只记 3600，其余为 0）
-FALLBACK_SECONDS = 3600
+FALLBACK_SECONDS = schedule_settings.fallback_seconds
 # 工单状态：9=排队中；来源 5=自动生成；巡检方式 1=机场 / 2=人工
 WORK_ORDER_STATUS_QUEUED = "9"
 ORDER_SOURCE_AUTO = "5"

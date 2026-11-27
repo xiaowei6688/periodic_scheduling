@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from ...shared import ApiError, get_shared_client
+from ...shared import ApiError, get_shared_client, schedule_settings
 
 from .split_work_orders import (
     INSPECTION_AIRPORT,
@@ -46,7 +46,7 @@ DEFAULT_OUT = BASE_DIR / "out" / "rework_set.json"
 DEFAULT_EXISTING = BASE_DIR / "out" / "existing_orders.json"
 
 # ---- 接口配置 ----
-API_PATH = "/api/main-cycle-server/workOrderInfo/getCycleOrderProjectPage"
+API_PATH = schedule_settings.existing_orders_api_path
 
 # ---- 状态码 ----
 STATUS_CANCELLED = "11"     # 已作废
